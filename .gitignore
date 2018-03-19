@@ -1,0 +1,10 @@
+
+images/
+
+*.mp4
+
+*.bag
+
+\.idea/
+
+*.txt
