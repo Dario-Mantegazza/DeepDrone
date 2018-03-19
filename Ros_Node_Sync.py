@@ -63,7 +63,7 @@ def get_bag_data(bag_file):
         frames.append(image_frame.data)
         camera_times.append(time_conversion_to_nano(image_frame.header.stamp.secs, image_frame.header.stamp.nsecs))
     bag.close()
-    return camera_times, bebop_times, hat_times
+    return camera_times, frames, bebop_times, bebop_poses, hat_times, hat_poses
 
 
 # -------------------Main area----------------------
@@ -71,32 +71,36 @@ def get_bag_data(bag_file):
 bag = rosbag.Bag('drone.bag')
 topics = bag.get_type_and_topic_info()[1].keys()
 
-camera_time_list, bebop_time_list, hat_time_list = get_bag_data(bag)
+camera_time_list, frame_list, bebop_time_list, bebop_pose_list, hat_time_list, hat_pose_list = get_bag_data(bag)
+
+camera_np_array = np.asarray(camera_time_list)
+bebop_np_array = np.asarray(bebop_time_list)
+hat_np_array = np.asarray(hat_time_list)
 
 bebop_idx_nearest = []
-for v in camera_time_list:
-    bebop_idx_nearest.append(find_nearest(bebop_time_list, v))
+for v in camera_np_array:
+    bebop_idx_nearest.append(find_nearest(bebop_np_array, v))
 
 hat_idx_nearest = []
-for v in camera_time_list:
-    hat_idx_nearest.append(find_nearest(hat_time_list, v))
+for v in camera_np_array:
+    hat_idx_nearest.append(find_nearest(hat_np_array, v))
 
-distances = np.zeros((len(camera_time_list), 2))
-s = (len(camera_time_list), 3)
+distances = np.zeros((len(camera_np_array), 2))
+s = (len(camera_np_array), 3)
 hat_points = np.zeros(s)
 bebop_points = np.zeros(s)
-for i in range(0, len(camera_time_list)):
-    head_pose = hat_time_list[hat_idx_nearest[i]]
+for i in range(0, len(camera_np_array)):
+    head_pose = hat_pose_list[hat_idx_nearest[i]]
 
     hat_points[i][0] = head_pose.x
     hat_points[i][1] = head_pose.y
     hat_points[i][2] = head_pose.z
 
-    bebop_pose = bebop_time_list[bebop_idx_nearest[i]]
+    bebop_pose = bebop_pose_list[bebop_idx_nearest[i]]
 
     bebop_points[i][0] = bebop_pose.x
     bebop_points[i][1] = bebop_pose.y
     bebop_points[i][2] = bebop_pose.z
 
-    distances[i][0] = camera_time_list[i]
+    distances[i][0] = camera_np_array[i]
     distances[i][1] = distance.pdist([hat_points[i], bebop_points[i]], 'euclidean')
