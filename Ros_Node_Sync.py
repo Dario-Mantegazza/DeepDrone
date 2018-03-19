@@ -20,7 +20,7 @@ def find_nearest(array, value):
     return (np.abs(array - value)).argmin()
 
 
-def video_creator(h_pose_list, b_pose_list, dists, fr_list, h_id_list, b_id_list):
+def video_data_creator(h_pose_list, b_pose_list, dists, fr_list, h_id_list, b_id_list):
     file_list = []
     for i in range(0, len(fr_list)):
         img = Image.open(io.BytesIO(fr_list[i]))
@@ -32,12 +32,29 @@ def video_creator(h_pose_list, b_pose_list, dists, fr_list, h_id_list, b_id_list
             b_pose.z) + "\n" + "head:\n" + "   x:" + str(h_pose.x) + "\n" + "   y:" + str(
             h_pose.y) + "\n" + "   z:" + str(h_pose.z)
         draw.text((5, 5), textprint, (255, 255, 255))
-        # images_list.append(img)
         png_path = "images/frame" + str(i) + ".png"
         img.save(png_path, "PNG")
         file_list.append(png_path)
 
     writer = imageio.get_writer('test.mp4', fps=30)
+
+    for im in file_list:
+        writer.append_data(imageio.imread(im))
+    writer.close()
+
+
+def video_creator(dists, fr_list, title='selected'):
+    file_list = []
+    for i in range(0, len(fr_list)):
+        img = Image.open(io.BytesIO(fr_list[i]))
+        draw = ImageDraw.Draw(img)
+        textprint = "Dist: " + str(dists[i][1])
+        draw.text((5, 5), textprint, (255, 255, 255))
+        png_path = "images/"+title+"_" + str(i) + ".png"
+        img.save(png_path, "PNG")
+        file_list.append(png_path)
+
+    writer = imageio.get_writer(title+'.mp4', fps=2)
 
     for im in file_list:
         writer.append_data(imageio.imread(im))
@@ -64,6 +81,22 @@ def get_bag_data(bag_file):
         camera_times.append(time_conversion_to_nano(image_frame.header.stamp.secs, image_frame.header.stamp.nsecs))
     bag_file.close()
     return camera_times, frames, bebop_times, bebop_poses, hat_times, hat_poses
+
+
+def get_distant_frame(dists, camera_times, frames, num=5):
+    sorted_distances = dists[dists[:, 1].argsort()]
+    frames_selected = []
+    for i in range(len(dists) - num, len(dists)):
+        frames_selected.append(frames[np.where(camera_times == sorted_distances[i][0])[0][0]])
+    return frames_selected, sorted_distances[-num:]
+
+
+def get_near_frame(dists, camera_times, frames, num=5):
+    sorted_distances = dists[dists[:, 1].argsort()]
+    frames_selected = []
+    for i in range(0, num):
+        frames_selected.append(frames[np.where(camera_times == sorted_distances[i][0])[0][0]])
+    return frames_selected, sorted_distances[0:num]
 
 
 # endregion
@@ -106,7 +139,14 @@ def main():
         distances[i][0] = camera_np_array[i]
         distances[i][1] = distance.pdist([hat_points[i], bebop_points[i]], 'euclidean')
 
-    video_creator(hat_pose_list, bebop_pose_list, distances, frame_list, hat_idx_nearest, bebop_idx_nearest)
+    # uncomment to create the video, but before empty the folder images and delete the mp4 file
+    # video_data_creator(hat_pose_list, bebop_pose_list, distances, frame_list, hat_idx_nearest, bebop_idx_nearest)
+
+    far_frames_sel, far_dist_sel = get_distant_frame(distances, camera_np_array, frame_list, num=30)
+    video_creator(far_dist_sel, far_frames_sel, title='far')
+
+    near_frames_sel, near_dist_sel = get_near_frame(distances, camera_np_array, frame_list, num=30)
+    video_creator(near_dist_sel, near_frames_sel, title='near')
 
 
 if __name__ == "__main__":
