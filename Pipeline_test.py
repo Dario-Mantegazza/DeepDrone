@@ -8,6 +8,7 @@ import rosbag
 from PIL import Image
 from PIL import ImageDraw
 from scipy.spatial import distance
+from matplotlib import pyplot as plt
 
 
 # ----------FUNCTIONS DEFINITIONS---------------
@@ -50,11 +51,11 @@ def video_creator(dists, fr_list, title='selected'):
         draw = ImageDraw.Draw(img)
         textprint = "Dist: " + str(dists[i][1])
         draw.text((5, 5), textprint, (255, 255, 255))
-        png_path = "images/"+title+"_" + str(i) + ".png"
+        png_path = "images/" + title + "_" + str(i) + ".png"
         img.save(png_path, "PNG")
         file_list.append(png_path)
 
-    writer = imageio.get_writer(title+'.mp4', fps=2)
+    writer = imageio.get_writer(title + '.mp4', fps=2)
 
     for im in file_list:
         writer.append_data(imageio.imread(im))
@@ -99,13 +100,27 @@ def get_near_frame(dists, camera_times, frames, num=5):
     return frames_selected, sorted_distances[0:num]
 
 
+def pil_to_pyplot(fr_list):
+    for i in range(0, len(fr_list)):
+        img = Image.open(io.BytesIO(fr_list[i]))
+        raw_frame = list(img.getdata())
+        frame = []
+        for b in raw_frame:
+            frame.append(b)
+        plt.clf()
+        reshaped = np.reshape(np.array(frame, dtype=np.int64), (480, 856, 3))
+        plt.imshow(reshaped)
+        plt.show(block=False)
+        plt.pause(0.001)
+
+
 # endregion
 # -------------------Main area----------------------
 def main():
-    #open the bag file
+    # open the bag file
     bag = rosbag.Bag('drone.bag')
 
-    #extract data from bag file
+    # extract data from bag file
     camera_time_list, frame_list, bebop_time_list, bebop_pose_list, hat_time_list, hat_pose_list = get_bag_data(bag)
 
     # reformat some data as np array for future use
@@ -113,23 +128,23 @@ def main():
     bebop_np_array = np.asarray(bebop_time_list)
     hat_np_array = np.asarray(hat_time_list)
 
-    #identify the nearest time frames of the bebop with respect of the camera data
+    # identify the nearest time frames of the bebop with respect of the camera data
     bebop_idx_nearest = []
     for v in camera_np_array:
         bebop_idx_nearest.append(find_nearest(bebop_np_array, v))
 
-    #identify the nearest time frames of the hat with respect of the camera data
+    # identify the nearest time frames of the hat with respect of the camera data
     hat_idx_nearest = []
     for v in camera_np_array:
         hat_idx_nearest.append(find_nearest(hat_np_array, v))
 
-    #some variable inits
+    # some variable inits
     distances = np.zeros((len(camera_np_array), 2))
     vect_structure = (len(camera_np_array), 3)
     hat_points = np.zeros(vect_structure)
     bebop_points = np.zeros(vect_structure)
 
-    #computing the distances array/matrix
+    # computing the distances array/matrix
     for i in range(0, len(camera_np_array)):
         head_pose = hat_pose_list[hat_idx_nearest[i]]
 
@@ -146,8 +161,9 @@ def main():
         distances[i][0] = camera_np_array[i]
         distances[i][1] = distance.pdist([hat_points[i], bebop_points[i]], 'euclidean')
 
-
-
+    near_frames_sel, near_dist_sel = get_near_frame(distances, camera_np_array, frame_list, num=30)
+    pil_to_pyplot(near_frames_sel)
 
 if __name__ == "__main__":
     main()
+

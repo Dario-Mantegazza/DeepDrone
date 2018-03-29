@@ -1,4 +1,4 @@
-import io
+# import io
 # import matplotlib as mpl
 import rosbag
 import numpy as np
@@ -13,7 +13,7 @@ from matplotlib import pyplot as plt
 
 
 # mpl.use('TkAgg')
-import imageio
+# import imageio
 
 
 def missing_numbers(complete_list, missing_list):  # complete list must be ordered and complete. maybe not what I need
@@ -22,17 +22,16 @@ def missing_numbers(complete_list, missing_list):  # complete list must be order
     return list(num_list ^ set(original_list))
 
 
-bag = rosbag.Bag('drone.bag')
-topics = bag.get_type_and_topic_info()[1].keys()
-
-
 def nanosec_sec_to_milli(sec, nano):
     return (sec * 1000) + ((nano / 1000) / 1000)
 
 
-saveGifPIL = lambda filename, images, **mimsaveParams: imageio.mimsave(filename, [
-    [(img.save(buf, format='png'), buf.seek(0), imageio.imread(buf))[2] for buf in [io.BytesIO()]][0] for img in
-    images], **mimsaveParams)
+bag = rosbag.Bag('drone.bag')
+# topics = bag.get_type_and_topic_info()[1].keys()
+
+# saveGifPIL = lambda filename, images, **mimsaveParams: imageio.mimsave(filename, [
+#     [(img.save(buf, format='png'), buf.seek(0), imageio.imread(buf))[2] for buf in [io.BytesIO()]][0] for img in
+#     images], **mimsaveParams)
 
 # head_seq_list = []
 # head_pose_list = []
@@ -55,7 +54,7 @@ count = 0
 for topic, raw_frame, t in bag.read_messages(topics=['/bebop/image_raw']):
     count += 1
     print('extracting image ', count)
-    if count>500:
+    if count > 500:
         continue
     frame = []
     for b in raw_frame.data:
