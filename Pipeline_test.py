@@ -9,6 +9,7 @@ from PIL import Image
 from PIL import ImageDraw
 from scipy.spatial import distance
 from matplotlib import pyplot as plt
+from matplotlib.ticker import MultipleLocator
 
 
 # ----------FUNCTIONS DEFINITIONS---------------
@@ -101,17 +102,53 @@ def get_near_frame(dists, camera_times, frames, num=5):
 
 
 def pil_to_pyplot(fr_list):
+    reshaped_list = []
     for i in range(0, len(fr_list)):
+        print("im: ",i)
         img = Image.open(io.BytesIO(fr_list[i]))
         raw_frame = list(img.getdata())
         frame = []
         for b in raw_frame:
             frame.append(b)
+
+        reshaped_list.append(np.reshape(np.array(frame, dtype=np.int64), (480, 856, 3)))
+
+    return reshaped_list
+
+
+def plotter(h_pose_list, b_pose_list, fr_list, h_id_list, b_id_list):
+    fig = plt.figure()
+    for i in range(215, len(fr_list)):
         plt.clf()
-        reshaped = np.reshape(np.array(frame, dtype=np.int64), (480, 856, 3))
-        plt.imshow(reshaped)
+        ax1 = fig.add_subplot(1, 2, 1)
+        ax2 = fig.add_subplot(1, 2, 2)
+
+        h_pose = h_pose_list[h_id_list[i]]
+        b_pose = b_pose_list[b_id_list[i]]
+
+        img = Image.open(io.BytesIO(fr_list[i]))
+        raw_frame = list(img.getdata())
+        frame = []
+        for b in raw_frame:
+            frame.append(b)
+        reshaped_fr = np.reshape(np.array(frame, dtype=np.int64), (480, 856, 3))
+        ax1.imshow(reshaped_fr)
+        plt.title("Frame: "+str(i))
+        ax2.axis([-2.0,2.0,-2.0,2.0])
+
+        spacing = 1
+        minorLocator = MultipleLocator(spacing)
+
+        # Set minor tick locations.
+        ax2.yaxis.set_minor_locator(minorLocator)
+        ax2.xaxis.set_minor_locator(minorLocator)
+        # Set grid to use minor tick locations.
+        ax2.grid(which='minor')
+        #
+        # plt.grid(True)
+        ax2.plot(b_pose.x,b_pose.y,"ro",h_pose.x,h_pose.y,"go")
         plt.show(block=False)
-        plt.pause(0.001)
+        plt.pause(0.01)
 
 
 # endregion
@@ -161,9 +198,13 @@ def main():
         distances[i][0] = camera_np_array[i]
         distances[i][1] = distance.pdist([hat_points[i], bebop_points[i]], 'euclidean')
 
-    near_frames_sel, near_dist_sel = get_near_frame(distances, camera_np_array, frame_list, num=30)
-    pil_to_pyplot(near_frames_sel)
+    # --uncomment to create the video, but before empty the folder images and delete the mp4 file
+    # video_data_creator(hat_pose_list, bebop_pose_list, distances, frame_list, hat_idx_nearest, bebop_idx_nearest)
+
+    # near_frames_sel, near_dist_sel = get_near_frame(distances, camera_np_array, frame_list, num=30)
+    # plt_frame_list = pil_to_pyplot(frame_list)
+    plotter(hat_pose_list, bebop_pose_list, frame_list, hat_idx_nearest, bebop_idx_nearest)
+
 
 if __name__ == "__main__":
     main()
-
