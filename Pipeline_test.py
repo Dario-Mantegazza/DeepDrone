@@ -274,9 +274,13 @@ def main():
         distances[i][1] = distance.pdist([hat_points[i], bebop_points[i]], 'euclidean')
 
     # plotter(hat_pose_list, bebop_pose_list, frame_list, hat_idx_nearest, bebop_idx_nearest)
-    video_plot_creator(hat_pose_list, bebop_pose_list, frame_list, hat_idx_nearest, bebop_idx_nearest,"main_plot")
+    # video_plot_creator(hat_pose_list, bebop_pose_list, frame_list, hat_idx_nearest, bebop_idx_nearest,"main_plot")
     # plot_times(bebop_time_list,hat_time_list,camera_time_list)
+    far_frames_sel, far_dist_sel = get_distant_frame(distances, camera_np_array, frame_list, num=30)
+    video_creator(far_dist_sel, far_frames_sel, title='far')
 
+    near_frames_sel, near_dist_sel = get_near_frame(distances, camera_np_array, frame_list, num=30)
+    video_creator(near_dist_sel, near_frames_sel, title='near')
 
 if __name__ == "__main__":
     main()
