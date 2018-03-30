@@ -27,7 +27,6 @@ for topic, bebop, t in bag.read_messages(topics=['/optitrack/bebop']):
 
 bag.close()
 
-# print(len(head_pose_list))
 dist_list = []
 missing_id = missing_numbers(bebop_seq_list,head_seq_list)
 print(missing_id)
