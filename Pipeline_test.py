@@ -1,15 +1,17 @@
 # --------------------IMPORT-------------------
 
 import io
-import imageio
+from subprocess import call
 
+import imageio
 import numpy as np
 import rosbag
 from PIL import Image
 from PIL import ImageDraw
-from scipy.spatial import distance
+from gtts import gTTS
 from matplotlib import pyplot as plt
 from matplotlib.ticker import MultipleLocator
+from scipy.spatial import distance
 
 
 # ----------FUNCTIONS DEFINITIONS---------------
@@ -54,11 +56,12 @@ def video_creator(dists, fr_list, title='selected'):
         writer.append_data(imageio.imread(im))
     writer.close()
 
-def video_plot_creator(h_pose_list, b_pose_list, fr_list, h_id_list, b_id_list,title):
+
+def video_plot_creator(h_pose_list, b_pose_list, fr_list, h_id_list, b_id_list, title):
     fig = plt.figure()
     file_list = []
     for i in range(0, len(fr_list)):
-        print("img: ",i)
+        print("img: ", i)
         plt.clf()
         ax1 = fig.add_subplot(1, 2, 1)
         ax2 = fig.add_subplot(1, 2, 2)
@@ -221,14 +224,18 @@ def plot_times(b_times, h_times, c_times):
     plt.show()
 
 
+def py_voice(text_to_speak="Computing Completed", l='en'):
+    tts = gTTS(text=text_to_speak, lang=l)
+    tts.save('voice.mp3')
+    # os.system('/voice.mp3')
+    call(["vlc", "voice.mp3"])
+
+
 # endregion
 # -------------------Main area----------------------
 def main():
     # open the bag file
     bag = rosbag.Bag('drone.bag')
-
-    import yaml
-    from rosbag.bag import Bag
 
     # info_dict = yaml.load(Bag('drone.bag', 'r')._get_yaml_info())
 
@@ -274,13 +281,19 @@ def main():
         distances[i][1] = distance.pdist([hat_points[i], bebop_points[i]], 'euclidean')
 
     # plotter(hat_pose_list, bebop_pose_list, frame_list, hat_idx_nearest, bebop_idx_nearest)
-    # video_plot_creator(hat_pose_list, bebop_pose_list, frame_list, hat_idx_nearest, bebop_idx_nearest,"main_plot")
-    # plot_times(bebop_time_list,hat_time_list,camera_time_list)
-    far_frames_sel, far_dist_sel = get_distant_frame(distances, camera_np_array, frame_list, num=30)
-    video_creator(far_dist_sel, far_frames_sel, title='far')
+    
+    video_plot_creator(hat_pose_list, bebop_pose_list, frame_list, hat_idx_nearest, bebop_idx_nearest,"main_plot")
 
-    near_frames_sel, near_dist_sel = get_near_frame(distances, camera_np_array, frame_list, num=30)
-    video_creator(near_dist_sel, near_frames_sel, title='near')
+    # plot_times(bebop_time_list,hat_time_list,camera_time_list)
+
+    # far_frames_sel, far_dist_sel = get_distant_frame(distances, camera_np_array, frame_list, num=30)
+    # video_creator(far_dist_sel, far_frames_sel, title='far')
+    #
+    # near_frames_sel, near_dist_sel = get_near_frame(distances, camera_np_array, frame_list, num=30)
+    # video_creator(near_dist_sel, near_frames_sel, title='near')
+
+    # py_voice("Lavoro completato", l='it')
+
 
 if __name__ == "__main__":
     main()
