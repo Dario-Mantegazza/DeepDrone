@@ -18,17 +18,17 @@ from scipy.spatial import distance
 # region Def
 
 # Video Creation
-def video_data_creator(h_pose_list, b_pose_list, dists, fr_list, h_id_list, b_id_list):
+def video_data_creator(h_position_list, b_position_list, dists, fr_list, h_id_list, b_id_list):
     file_list = []
     for i in range(0, len(fr_list)):
         img = Image.open(io.BytesIO(fr_list[i]))
-        h_pose = h_pose_list[h_id_list[i]]
-        b_pose = b_pose_list[b_id_list[i]]
+        h_position = h_position_list[h_id_list[i]]
+        b_position = b_position_list[b_id_list[i]]
         draw = ImageDraw.Draw(img)
         textprint = "Dist: " + str(dists[i][1]) + "\n" + "drone:\n" + "   x:" + str(
-            b_pose.x) + "\n" + "   y:" + str(b_pose.y) + "\n" + "   z:" + str(
-            b_pose.z) + "\n" + "head:\n" + "   x:" + str(h_pose.x) + "\n" + "   y:" + str(
-            h_pose.y) + "\n" + "   z:" + str(h_pose.z)
+            b_position.x) + "\n" + "   y:" + str(b_position.y) + "\n" + "   z:" + str(
+            b_position.z) + "\n" + "head:\n" + "   x:" + str(h_position.x) + "\n" + "   y:" + str(
+            h_position.y) + "\n" + "   z:" + str(h_position.z)
         draw.text((5, 5), textprint, (255, 255, 255))
         png_path = "images/frame" + str(i) + ".png"
         img.save(png_path, "PNG")
@@ -57,7 +57,7 @@ def video_creator(dists, fr_list, title='selected'):
     writer.close()
 
 
-def video_plot_creator(h_pose_list, b_pose_list, fr_list, h_id_list, b_id_list, title):
+def video_plot_creator(h_position_list, b_position_list, fr_list, h_id_list, b_id_list, title):
     fig = plt.figure()
     file_list = []
     for i in range(0, len(fr_list)):
@@ -66,8 +66,8 @@ def video_plot_creator(h_pose_list, b_pose_list, fr_list, h_id_list, b_id_list, 
         ax1 = fig.add_subplot(1, 2, 1)
         ax2 = fig.add_subplot(1, 2, 2)
 
-        h_pose = h_pose_list[h_id_list[i]]
-        b_pose = b_pose_list[b_id_list[i]]
+        h_position = h_position_list[h_id_list[i]]
+        b_position = b_position_list[b_id_list[i]]
 
         img = Image.open(io.BytesIO(fr_list[i]))
         raw_frame = list(img.getdata())
@@ -89,7 +89,7 @@ def video_plot_creator(h_pose_list, b_pose_list, fr_list, h_id_list, b_id_list, 
         ax2.grid(which='minor')
         #
         # plt.grid(True)
-        ax2.plot(b_pose.x, b_pose.y, "ro", h_pose.x, h_pose.y, "go")
+        ax2.plot(b_position.x, b_position.y, "ro", h_position.x, h_position.y, "go")
         png_path = "images/" + title + "_" + str(i) + ".png"
         plt.savefig(png_path)
         file_list.append(png_path)
@@ -127,23 +127,23 @@ def find_nearest(array, value):
 
 
 def get_bag_data(bag_file):
-    hat_poses = []
+    hat_positions = []
     hat_times = []
     for topic, hat, t in bag_file.read_messages(topics=['/optitrack/head']):
         secs = t.secs
         nsecs = t.nsecs
         hat_times.append(time_conversion_to_nano(secs, nsecs))
         # hat_times.append(time_conversion_to_nano(hat.header.stamp.secs, hat.header.stamp.nsecs))
-        hat_poses.append(hat.pose.position)
+        hat_positions.append(hat.pose.position)
 
-    bebop_poses = []
+    bebop_positions = []
     bebop_times = []
     for topic, bebop, t in bag_file.read_messages(topics=['/optitrack/bebop']):
         secs = t.secs
         nsecs = t.nsecs
         bebop_times.append(time_conversion_to_nano(secs, nsecs))
         # bebop_times.append(time_conversion_to_nano(bebop.header.stamp.secs, bebop.header.stamp.nsecs))
-        bebop_poses.append(bebop.pose.position)
+        bebop_positions.append(bebop.pose.position)
 
     frames = []
     camera_times = []
@@ -162,7 +162,7 @@ def get_bag_data(bag_file):
     #    else:
     #        mt.to_nsec()
 
-    return camera_times, frames, bebop_times, bebop_poses, hat_times, hat_poses
+    return camera_times, frames, bebop_times, bebop_positions, hat_times, hat_positions
 
 
 def get_distant_frame(dists, camera_times, frames, num=5):
@@ -181,15 +181,15 @@ def get_near_frame(dists, camera_times, frames, num=5):
     return frames_selected, sorted_distances[0:num]
 
 
-def plotter(h_pose_list, b_pose_list, fr_list, h_id_list, b_id_list):
+def plotter(h_position_list, b_position_list, fr_list, h_id_list, b_id_list):
     fig = plt.figure()
     for i in range(0, len(fr_list)):
         plt.clf()
         ax1 = fig.add_subplot(1, 2, 1)
         ax2 = fig.add_subplot(1, 2, 2)
 
-        h_pose = h_pose_list[h_id_list[i]]
-        b_pose = b_pose_list[b_id_list[i]]
+        h_position = h_position_list[h_id_list[i]]
+        b_position = b_position_list[b_id_list[i]]
 
         img = Image.open(io.BytesIO(fr_list[i]))
         raw_frame = list(img.getdata())
@@ -211,7 +211,7 @@ def plotter(h_pose_list, b_pose_list, fr_list, h_id_list, b_id_list):
         ax2.grid(which='minor')
         #
         # plt.grid(True)
-        ax2.plot(b_pose.x, b_pose.y, "ro", h_pose.x, h_pose.y, "go")
+        ax2.plot(b_position.x, b_position.y, "ro", h_position.x, h_position.y, "go")
         plt.show(block=False)
         plt.pause(0.01)
 
@@ -228,7 +228,7 @@ def py_voice(text_to_speak="Computing Completed", l='en'):
     tts = gTTS(text=text_to_speak, lang=l)
     tts.save('voice.mp3')
     # os.system('/voice.mp3')
-    call(["vlc", "voice.mp3"])
+    call(["cvlc", "voice.mp3",'--play-and-exit'])
 
 
 # endregion
@@ -240,7 +240,7 @@ def main():
     # info_dict = yaml.load(Bag('drone.bag', 'r')._get_yaml_info())
 
     # extract data from bag file
-    camera_time_list, frame_list, bebop_time_list, bebop_pose_list, hat_time_list, hat_pose_list = get_bag_data(bag)
+    camera_time_list, frame_list, bebop_time_list, bebop_position_list, hat_time_list, hat_position_list = get_bag_data(bag)
 
     # reformat some data as np array for future use
     camera_np_array = np.asarray(camera_time_list)
@@ -265,24 +265,24 @@ def main():
 
     # computing the distances array/matrix
     for i in range(0, len(camera_np_array)):
-        head_pose = hat_pose_list[hat_idx_nearest[i]]
+        head_position = hat_position_list[hat_idx_nearest[i]]
 
-        hat_points[i][0] = head_pose.x
-        hat_points[i][1] = head_pose.y
-        hat_points[i][2] = head_pose.z
+        hat_points[i][0] = head_position.x
+        hat_points[i][1] = head_position.y
+        hat_points[i][2] = head_position.z
 
-        bebop_pose = bebop_pose_list[bebop_idx_nearest[i]]
+        bebop_position = bebop_position_list[bebop_idx_nearest[i]]
 
-        bebop_points[i][0] = bebop_pose.x
-        bebop_points[i][1] = bebop_pose.y
-        bebop_points[i][2] = bebop_pose.z
+        bebop_points[i][0] = bebop_position.x
+        bebop_points[i][1] = bebop_position.y
+        bebop_points[i][2] = bebop_position.z
 
         distances[i][0] = camera_np_array[i]
         distances[i][1] = distance.pdist([hat_points[i], bebop_points[i]], 'euclidean')
 
-    # plotter(hat_pose_list, bebop_pose_list, frame_list, hat_idx_nearest, bebop_idx_nearest)
-    
-    video_plot_creator(hat_pose_list, bebop_pose_list, frame_list, hat_idx_nearest, bebop_idx_nearest,"main_plot")
+    # plotter(hat_position_list, bebop_position_list, frame_list, hat_idx_nearest, bebop_idx_nearest)
+
+    # video_plot_creator(hat_position_list, bebop_position_list, frame_list, hat_idx_nearest, bebop_idx_nearest,"main_plot")
 
     # plot_times(bebop_time_list,hat_time_list,camera_time_list)
 
@@ -292,7 +292,7 @@ def main():
     # near_frames_sel, near_dist_sel = get_near_frame(distances, camera_np_array, frame_list, num=30)
     # video_creator(near_dist_sel, near_frames_sel, title='near')
 
-    # py_voice("Lavoro completato", l='it')
+    py_voice("lavoro completato", l='it')
 
 
 if __name__ == "__main__":
