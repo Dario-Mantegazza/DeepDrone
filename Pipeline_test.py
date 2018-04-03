@@ -120,6 +120,17 @@ def pil_to_pyplot(fr_list):
 
     return reshaped_list
 
+def quat_to_eul(orientation):
+    # type(pose) = geometry_msgs.msg.Pose
+    quaternion = (
+        orientation.x,
+        orientation.y,
+        orientation.z,
+        orientation.w)
+    euler = tf.transformations.euler_from_quaternion(quaternion)
+    roll = euler[0]
+    pitch = euler[1]
+    yaw = euler[2]
 
 # tools
 def find_nearest(array, value):
@@ -128,6 +139,7 @@ def find_nearest(array, value):
 
 def get_bag_data(bag_file):
     hat_positions = []
+    hat_orientaions = []
     hat_times = []
     for topic, hat, t in bag_file.read_messages(topics=['/optitrack/head']):
         secs = t.secs
@@ -135,6 +147,7 @@ def get_bag_data(bag_file):
         hat_times.append(time_conversion_to_nano(secs, nsecs))
         # hat_times.append(time_conversion_to_nano(hat.header.stamp.secs, hat.header.stamp.nsecs))
         hat_positions.append(hat.pose.position)
+        hat_orientaions.append(quat_to_eul(hat.pose.orientation))
 
     bebop_positions = []
     bebop_times = []
