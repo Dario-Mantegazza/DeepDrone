@@ -10,3 +10,13 @@ images/
 *.txt
 
 *.mp3
+
+venv/bin/
+
+venv/include/
+
+venv/lib/python2\.7/
+
+venv/local/
+
+venv/

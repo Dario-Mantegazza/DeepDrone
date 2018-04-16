@@ -4,6 +4,7 @@ import io
 from subprocess import call
 
 import imageio
+import tf
 import numpy as np
 import rosbag
 from PIL import Image
@@ -43,6 +44,7 @@ def video_data_creator(h_position_list, b_position_list, dists, fr_list, h_id_li
 def video_creator(dists, fr_list, title='selected'):
     file_list = []
     for i in range(0, len(fr_list)):
+        # for i in range(0, 500):
         img = Image.open(io.BytesIO(fr_list[i]))
         draw = ImageDraw.Draw(img)
         textprint = "Dist: " + str(dists[i][1])
@@ -57,17 +59,20 @@ def video_creator(dists, fr_list, title='selected'):
     writer.close()
 
 
-def video_plot_creator(h_position_list, b_position_list, fr_list, h_id_list, b_id_list, title):
+def video_plot_creator(h_position_list, b_position_list, fr_list, h_id_list, b_id_list, h_or_list, b_or_list, title):
     fig = plt.figure()
     file_list = []
     for i in range(0, len(fr_list)):
-        print("img: ", i)
+        # for i in range(300, 600):
+        print("img: " + str(i))
         plt.clf()
         ax1 = fig.add_subplot(1, 2, 1)
         ax2 = fig.add_subplot(1, 2, 2)
 
         h_position = h_position_list[h_id_list[i]]
         b_position = b_position_list[b_id_list[i]]
+        h_orientation = h_or_list[h_id_list[i]]
+        b_orientation = b_or_list[b_id_list[i]]
 
         img = Image.open(io.BytesIO(fr_list[i]))
         raw_frame = list(img.getdata())
@@ -75,10 +80,16 @@ def video_plot_creator(h_position_list, b_position_list, fr_list, h_id_list, b_i
         for b in raw_frame:
             frame.append(b)
         reshaped_fr = np.reshape(np.array(frame, dtype=np.int64), (480, 856, 3))
+        reshaped_fr = reshaped_fr.astype(np.uint8)
+
         ax1.imshow(reshaped_fr)
         plt.title("Frame: " + str(i))
         ax2.axis([-2.4, 2.4, -2.4, 2.4])
 
+        # theta = h_orientation['yaw']
+        h_theta = h_orientation[2]
+        b_theta = b_orientation[2]
+        arrow_length = 0.3
         spacing = 1.2
         minor_locator = MultipleLocator(spacing)
 
@@ -90,6 +101,9 @@ def video_plot_creator(h_position_list, b_position_list, fr_list, h_id_list, b_i
         #
         # plt.grid(True)
         ax2.plot(b_position.x, b_position.y, "ro", h_position.x, h_position.y, "go")
+        ax2.arrow(h_position.x, h_position.y, arrow_length * np.cos(h_theta), arrow_length * np.sin(h_theta), head_width=0.05, head_length=0.1, fc='g', ec='g')
+        ax2.arrow(b_position.x, b_position.y, arrow_length * np.cos(b_theta), arrow_length * np.sin(b_theta), head_width=0.05, head_length=0.1, fc='r', ec='r')
+
         png_path = "images/" + title + "_" + str(i) + ".png"
         plt.savefig(png_path)
         file_list.append(png_path)
@@ -120,6 +134,7 @@ def pil_to_pyplot(fr_list):
 
     return reshaped_list
 
+
 def quat_to_eul(orientation):
     # type(pose) = geometry_msgs.msg.Pose
     quaternion = (
@@ -128,9 +143,12 @@ def quat_to_eul(orientation):
         orientation.z,
         orientation.w)
     euler = tf.transformations.euler_from_quaternion(quaternion)
-    roll = euler[0]
-    pitch = euler[1]
-    yaw = euler[2]
+    # roll = euler[0]
+    # pitch = euler[1]
+    # yaw = euler[2]
+    # eul_orientation = {name: value for name, value in zip(['roll', 'pitch', 'yaw'], euler)}
+    return euler
+
 
 # tools
 def find_nearest(array, value):
@@ -150,6 +168,7 @@ def get_bag_data(bag_file):
         hat_orientaions.append(quat_to_eul(hat.pose.orientation))
 
     bebop_positions = []
+    bebop_orientaions = []
     bebop_times = []
     for topic, bebop, t in bag_file.read_messages(topics=['/optitrack/bebop']):
         secs = t.secs
@@ -157,6 +176,7 @@ def get_bag_data(bag_file):
         bebop_times.append(time_conversion_to_nano(secs, nsecs))
         # bebop_times.append(time_conversion_to_nano(bebop.header.stamp.secs, bebop.header.stamp.nsecs))
         bebop_positions.append(bebop.pose.position)
+        bebop_orientaions.append(quat_to_eul(bebop.pose.orientation))
 
     frames = []
     camera_times = []
@@ -175,7 +195,7 @@ def get_bag_data(bag_file):
     #    else:
     #        mt.to_nsec()
 
-    return camera_times, frames, bebop_times, bebop_positions, hat_times, hat_positions
+    return camera_times, frames, bebop_times, bebop_positions, hat_times, hat_positions, hat_orientaions, bebop_orientaions
 
 
 def get_distant_frame(dists, camera_times, frames, num=5):
@@ -194,7 +214,7 @@ def get_near_frame(dists, camera_times, frames, num=5):
     return frames_selected, sorted_distances[0:num]
 
 
-def plotter(h_position_list, b_position_list, fr_list, h_id_list, b_id_list):
+def plotter(h_position_list, b_position_list, fr_list, h_id_list, b_id_list, h_or_list, b_or_list):
     fig = plt.figure()
     for i in range(0, len(fr_list)):
         plt.clf()
@@ -203,6 +223,8 @@ def plotter(h_position_list, b_position_list, fr_list, h_id_list, b_id_list):
 
         h_position = h_position_list[h_id_list[i]]
         b_position = b_position_list[b_id_list[i]]
+        h_orientation = h_or_list[h_id_list[i]]
+        b_orientation = b_or_list[b_id_list[i]]
 
         img = Image.open(io.BytesIO(fr_list[i]))
         raw_frame = list(img.getdata())
@@ -210,10 +232,14 @@ def plotter(h_position_list, b_position_list, fr_list, h_id_list, b_id_list):
         for b in raw_frame:
             frame.append(b)
         reshaped_fr = np.reshape(np.array(frame, dtype=np.int64), (480, 856, 3))
+        reshaped_fr = reshaped_fr.astype(np.uint8)
         ax1.imshow(reshaped_fr)
         plt.title("Frame: " + str(i))
         ax2.axis([-2.4, 2.4, -2.4, 2.4])
 
+        h_theta = h_orientation['yaw']
+        b_theta = b_orientation['yaw']
+        arrow_length = 0.3
         spacing = 1.2
         minor_locator = MultipleLocator(spacing)
 
@@ -225,6 +251,8 @@ def plotter(h_position_list, b_position_list, fr_list, h_id_list, b_id_list):
         #
         # plt.grid(True)
         ax2.plot(b_position.x, b_position.y, "ro", h_position.x, h_position.y, "go")
+        ax2.arrow(h_position.x, h_position.y, arrow_length * np.cos(h_theta), arrow_length * np.sin(h_theta), head_width=0.05, head_length=0.1, fc='g', ec='g')
+        ax2.arrow(b_position.x, b_position.y, arrow_length * np.cos(b_theta), arrow_length * np.sin(b_theta), head_width=0.05, head_length=0.1, fc='r', ec='r')
         plt.show(block=False)
         plt.pause(0.01)
 
@@ -241,7 +269,7 @@ def py_voice(text_to_speak="Computing Completed", l='en'):
     tts = gTTS(text=text_to_speak, lang=l)
     tts.save('voice.mp3')
     # os.system('/voice.mp3')
-    call(["cvlc", "voice.mp3",'--play-and-exit'])
+    call(["cvlc", "voice.mp3", '--play-and-exit'])
 
 
 # endregion
@@ -253,7 +281,7 @@ def main():
     # info_dict = yaml.load(Bag('drone.bag', 'r')._get_yaml_info())
 
     # extract data from bag file
-    camera_time_list, frame_list, bebop_time_list, bebop_position_list, hat_time_list, hat_position_list = get_bag_data(bag)
+    camera_time_list, frame_list, bebop_time_list, bebop_position_list, hat_time_list, hat_position_list, hat_orientation_list, bebop_orientation_list = get_bag_data(bag)
 
     # reformat some data as np array for future use
     camera_np_array = np.asarray(camera_time_list)
@@ -293,9 +321,9 @@ def main():
         distances[i][0] = camera_np_array[i]
         distances[i][1] = distance.pdist([hat_points[i], bebop_points[i]], 'euclidean')
 
-    # plotter(hat_position_list, bebop_position_list, frame_list, hat_idx_nearest, bebop_idx_nearest)
+    # plotter(hat_position_list, bebop_position_list, frame_list, hat_idx_nearest, bebop_idx_nearest,hat_orientation_list, bebop_orientation_list)
 
-    # video_plot_creator(hat_position_list, bebop_position_list, frame_list, hat_idx_nearest, bebop_idx_nearest,"main_plot")
+    video_plot_creator(hat_position_list, bebop_position_list, frame_list, hat_idx_nearest, bebop_idx_nearest, hat_orientation_list, bebop_orientation_list,"main_plot")
 
     # plot_times(bebop_time_list,hat_time_list,camera_time_list)
 
