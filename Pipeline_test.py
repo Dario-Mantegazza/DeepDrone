@@ -1,6 +1,7 @@
 # --------------------IMPORT-------------------
 
 import io
+import math
 from subprocess import call
 
 import imageio
@@ -136,17 +137,12 @@ def pil_to_pyplot(fr_list):
 
 
 def quat_to_eul(orientation):
-    # type(pose) = geometry_msgs.msg.Pose
     quaternion = (
         orientation.x,
         orientation.y,
         orientation.z,
         orientation.w)
-    euler = tf.transformations.euler_from_quaternion(quaternion)
-    # roll = euler[0]
-    # pitch = euler[1]
-    # yaw = euler[2]
-    # eul_orientation = {name: value for name, value in zip(['roll', 'pitch', 'yaw'], euler)}
+    euler = tf.transformations.euler_from_quaternion(quaternion)  # roll 0, pitch 1, yaw 2
     return euler
 
 
@@ -159,11 +155,13 @@ def get_bag_data(bag_file):
     hat_positions = []
     hat_orientaions = []
     hat_times = []
+    # if canTransform('/bebop/odom', source_frame, time):
+    #     print "yay"
     for topic, hat, t in bag_file.read_messages(topics=['/optitrack/head']):
         secs = t.secs
         nsecs = t.nsecs
         hat_times.append(time_conversion_to_nano(secs, nsecs))
-        # hat_times.append(time_conversion_to_nano(hat.header.stamp.secs, hat.header.stamp.nsecs))
+
         hat_positions.append(hat.pose.position)
         hat_orientaions.append(quat_to_eul(hat.pose.orientation))
 
@@ -174,7 +172,6 @@ def get_bag_data(bag_file):
         secs = t.secs
         nsecs = t.nsecs
         bebop_times.append(time_conversion_to_nano(secs, nsecs))
-        # bebop_times.append(time_conversion_to_nano(bebop.header.stamp.secs, bebop.header.stamp.nsecs))
         bebop_positions.append(bebop.pose.position)
         bebop_orientaions.append(quat_to_eul(bebop.pose.orientation))
 
@@ -185,16 +182,9 @@ def get_bag_data(bag_file):
         nsecs = t.nsecs
         frames.append(image_frame.data)
         camera_times.append(time_conversion_to_nano(secs, nsecs))
-        # camera_times.append(time_conversion_to_nano(image_frame.header.stamp.secs, image_frame.header.stamp.nsecs))
+
     bag_file.close()
-    bag_topics = bag_file.get_type_and_topic_info()[1].keys()
-
-    # for idx, (topic, msg, mt) in enumerate(bag_file.read_messages(topics=bag_topics)):
-    #    if(ts_from_header):
-    #        msg.header.stamp.to_nsec()
-    #    else:
-    #        mt.to_nsec()
-
+    # bag_topics = bag_file.get_type_and_topic_info()[1].keys()
     return camera_times, frames, bebop_times, bebop_positions, hat_times, hat_positions, hat_orientaions, bebop_orientaions
 
 
@@ -218,9 +208,12 @@ def plotter(h_position_list, b_position_list, fr_list, h_id_list, b_id_list, h_o
     fig = plt.figure()
     for i in range(0, len(fr_list)):
         plt.clf()
-        ax1 = fig.add_subplot(1, 2, 1)
-        ax2 = fig.add_subplot(1, 2, 2)
+        plt.title("Frame: " + str(i))
+        axl = fig.add_subplot(1, 3, 1)
+        axc = fig.add_subplot(1, 3, 2)
+        axr = fig.add_subplot(1, 3, 3)
 
+        # Central IMAGE
         h_position = h_position_list[h_id_list[i]]
         b_position = b_position_list[b_id_list[i]]
         h_orientation = h_or_list[h_id_list[i]]
@@ -233,26 +226,36 @@ def plotter(h_position_list, b_position_list, fr_list, h_id_list, b_id_list, h_o
             frame.append(b)
         reshaped_fr = np.reshape(np.array(frame, dtype=np.int64), (480, 856, 3))
         reshaped_fr = reshaped_fr.astype(np.uint8)
-        ax1.imshow(reshaped_fr)
-        plt.title("Frame: " + str(i))
-        ax2.axis([-2.4, 2.4, -2.4, 2.4])
+        axc.imshow(reshaped_fr)
 
-        h_theta = h_orientation['yaw']
-        b_theta = b_orientation['yaw']
+        # RIGHT PLOT
+        axr.axis([-2.4, 2.4, -2.4, 2.4])
+
+        h_theta = h_orientation[2]
+        b_theta = b_orientation[2]
         arrow_length = 0.3
         spacing = 1.2
         minor_locator = MultipleLocator(spacing)
 
         # Set minor tick locations.
-        ax2.yaxis.set_minor_locator(minor_locator)
-        ax2.xaxis.set_minor_locator(minor_locator)
+        axr.yaxis.set_minor_locator(minor_locator)
+        axr.xaxis.set_minor_locator(minor_locator)
         # Set grid to use minor tick locations.
-        ax2.grid(which='minor')
-        #
+        axr.grid(which='minor')
+
         # plt.grid(True)
-        ax2.plot(b_position.x, b_position.y, "ro", h_position.x, h_position.y, "go")
-        ax2.arrow(h_position.x, h_position.y, arrow_length * np.cos(h_theta), arrow_length * np.sin(h_theta), head_width=0.05, head_length=0.1, fc='g', ec='g')
-        ax2.arrow(b_position.x, b_position.y, arrow_length * np.cos(b_theta), arrow_length * np.sin(b_theta), head_width=0.05, head_length=0.1, fc='r', ec='r')
+        axr.plot(b_position.x, b_position.y, "ro", h_position.x, h_position.y, "go")
+        axr.arrow(h_position.x, h_position.y, arrow_length * np.cos(h_theta), arrow_length * np.sin(h_theta), head_width=0.05, head_length=0.1, fc='g', ec='g')
+        axr.arrow(b_position.x, b_position.y, arrow_length * np.cos(b_theta), arrow_length * np.sin(b_theta), head_width=0.05, head_length=0.1, fc='r', ec='r')
+
+        # LEFT PLOT
+        # transform from head to world to drone then compute atan2
+
+        horizontal_angle = math.atan2(h_position.y, h_position.x)
+        vertical_angle = math.atan2(h_position.z, h_position.x)
+        axl.plot(horizontal_angle, vertical_angle, "go")
+
+        # general plot stuff
         plt.show(block=False)
         plt.pause(0.01)
 
@@ -321,9 +324,9 @@ def main():
         distances[i][0] = camera_np_array[i]
         distances[i][1] = distance.pdist([hat_points[i], bebop_points[i]], 'euclidean')
 
-    # plotter(hat_position_list, bebop_position_list, frame_list, hat_idx_nearest, bebop_idx_nearest,hat_orientation_list, bebop_orientation_list)
+    plotter(hat_position_list, bebop_position_list, frame_list, hat_idx_nearest, bebop_idx_nearest,hat_orientation_list, bebop_orientation_list)
 
-    video_plot_creator(hat_position_list, bebop_position_list, frame_list, hat_idx_nearest, bebop_idx_nearest, hat_orientation_list, bebop_orientation_list,"main_plot")
+    # video_plot_creator(hat_position_list, bebop_position_list, frame_list, hat_idx_nearest, bebop_idx_nearest, hat_orientation_list, bebop_orientation_list,"main_plot")
 
     # plot_times(bebop_time_list,hat_time_list,camera_time_list)
 
