@@ -65,7 +65,8 @@ def video_plot_creator(h_position_list, b_position_list, fr_list, h_id_list, b_i
     file_list = []
     for i in range(0, len(fr_list)):
         # for i in range(300, 600):
-        print("img: " + str(i))
+        print("completed: " + str(100.0*i/len(fr_list))+"%")
+        print("frame: " + str(i)+"/"+str(len(fr_list)))
         plt.clf()
         ax1 = fig.add_subplot(1, 2, 1)
         ax2 = fig.add_subplot(1, 2, 2)
@@ -150,6 +151,7 @@ def quat_to_eul(orientation):
 def find_nearest(array, value):
     return (np.abs(array - value)).argmin()
 
+# export ROS_MASTER_URI=http://192.168.201.4:11311
 
 def get_bag_data(bag_file):
     hat_positions = []
@@ -279,7 +281,7 @@ def py_voice(text_to_speak="Computing Completed", l='en'):
 # -------------------Main area----------------------
 def main():
     # open the bag file
-    bag = rosbag.Bag('drone.bag')
+    bag = rosbag.Bag('2018-04-19-12-53-35.bag')
 
     # info_dict = yaml.load(Bag('drone.bag', 'r')._get_yaml_info())
 
@@ -324,9 +326,9 @@ def main():
         distances[i][0] = camera_np_array[i]
         distances[i][1] = distance.pdist([hat_points[i], bebop_points[i]], 'euclidean')
 
-    plotter(hat_position_list, bebop_position_list, frame_list, hat_idx_nearest, bebop_idx_nearest,hat_orientation_list, bebop_orientation_list)
+    # plotter(hat_position_list, bebop_position_list, frame_list, hat_idx_nearest, bebop_idx_nearest,hat_orientation_list, bebop_orientation_list)
 
-    # video_plot_creator(hat_position_list, bebop_position_list, frame_list, hat_idx_nearest, bebop_idx_nearest, hat_orientation_list, bebop_orientation_list,"main_plot")
+    video_plot_creator(hat_position_list, bebop_position_list, frame_list, hat_idx_nearest, bebop_idx_nearest, hat_orientation_list, bebop_orientation_list,"main_plot")
 
     # plot_times(bebop_time_list,hat_time_list,camera_time_list)
 
@@ -336,7 +338,7 @@ def main():
     # near_frames_sel, near_dist_sel = get_near_frame(distances, camera_np_array, frame_list, num=30)
     # video_creator(near_dist_sel, near_frames_sel, title='near')
 
-    py_voice("lavoro completato", l='it')
+    py_voice("Lavoro Completato", l='it')
 
 
 if __name__ == "__main__":
