@@ -4,15 +4,19 @@ import io
 import math
 from subprocess import call
 
+import cv2
 import imageio
 import tf
 import numpy as np
 import rosbag
 from PIL import Image
 from PIL import ImageDraw
+
+import tqdm as tqdm
 from gtts import gTTS
 from matplotlib import pyplot as plt
 from matplotlib.ticker import MultipleLocator
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from scipy.spatial import distance
 
 
@@ -60,13 +64,12 @@ def video_creator(dists, fr_list, title='selected'):
     writer.close()
 
 
-def video_plot_creator(h_position_list, b_position_list, fr_list, h_id_list, b_id_list, h_or_list, b_or_list, title):
+def video_plot_creator(h_position_list, b_position_list, fr_list, h_id_list, b_id_list, h_or_list, b_or_list, title="test.avi"):
     fig = plt.figure()
-    file_list = []
-    for i in range(0, len(fr_list)):
-        # for i in range(300, 600):
-        print("completed: " + str(100.0*i/len(fr_list))+"%")
-        print("frame: " + str(i)+"/"+str(len(fr_list)))
+    canvas = FigureCanvas(fig)
+    video_writer = cv2.VideoWriter(title, cv2.VideoWriter_fourcc(*'XVID'), 30, (640, 480))
+    # for i in tqdm.tqdm(range(0, len(fr_list))):
+    for i in tqdm.tqdm(range(0, 100)):
         plt.clf()
         ax1 = fig.add_subplot(1, 2, 1)
         ax2 = fig.add_subplot(1, 2, 2)
@@ -88,7 +91,6 @@ def video_plot_creator(h_position_list, b_position_list, fr_list, h_id_list, b_i
         plt.title("Frame: " + str(i))
         ax2.axis([-2.4, 2.4, -2.4, 2.4])
 
-        # theta = h_orientation['yaw']
         h_theta = h_orientation[2]
         b_theta = b_orientation[2]
         arrow_length = 0.3
@@ -100,22 +102,18 @@ def video_plot_creator(h_position_list, b_position_list, fr_list, h_id_list, b_i
         ax2.xaxis.set_minor_locator(minor_locator)
         # Set grid to use minor tick locations.
         ax2.grid(which='minor')
-        #
-        # plt.grid(True)
         ax2.plot(b_position.x, b_position.y, "ro", h_position.x, h_position.y, "go")
         ax2.arrow(h_position.x, h_position.y, arrow_length * np.cos(h_theta), arrow_length * np.sin(h_theta), head_width=0.05, head_length=0.1, fc='g', ec='g')
         ax2.arrow(b_position.x, b_position.y, arrow_length * np.cos(b_theta), arrow_length * np.sin(b_theta), head_width=0.05, head_length=0.1, fc='r', ec='r')
 
-        png_path = "images/" + title + "_" + str(i) + ".png"
-        plt.savefig(png_path)
-        file_list.append(png_path)
+        canvas.draw()
+        width, height = fig.get_size_inches() * fig.get_dpi()
+        img = np.fromstring(canvas.tostring_rgb(), dtype='uint8').reshape(height, width, 3)
+        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+        video_writer.write(img)
 
-    print("video creation")
-    writer = imageio.get_writer(title + '.mp4', fps=30)
-    for im in file_list:
-        writer.append_data(imageio.imread(im))
-    writer.close()
-
+    video_writer.release()
+    cv2.destroyAllWindows()
 
 # Conversions
 def time_conversion_to_nano(sec, nano):
@@ -281,7 +279,8 @@ def py_voice(text_to_speak="Computing Completed", l='en'):
 # -------------------Main area----------------------
 def main():
     # open the bag file
-    bag = rosbag.Bag('2018-04-19-12-53-35.bag')
+    # bag = rosbag.Bag('2018-04-19-12-53-35.bag')
+    bag = rosbag.Bag('drone.bag')
 
     # info_dict = yaml.load(Bag('drone.bag', 'r')._get_yaml_info())
 
@@ -328,7 +327,7 @@ def main():
 
     # plotter(hat_position_list, bebop_position_list, frame_list, hat_idx_nearest, bebop_idx_nearest,hat_orientation_list, bebop_orientation_list)
 
-    video_plot_creator(hat_position_list, bebop_position_list, frame_list, hat_idx_nearest, bebop_idx_nearest, hat_orientation_list, bebop_orientation_list,"main_plot")
+    video_plot_creator(hat_position_list, bebop_position_list, frame_list, hat_idx_nearest, bebop_idx_nearest, hat_orientation_list, bebop_orientation_list,"main_plot.avi")
 
     # plot_times(bebop_time_list,hat_time_list,camera_time_list)
 
