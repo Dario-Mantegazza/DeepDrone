@@ -18,6 +18,7 @@ from matplotlib import pyplot as plt
 from matplotlib.ticker import MultipleLocator
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from scipy.spatial import distance
+from tf.transformations import (quaternion_conjugate, quaternion_multiply)
 
 
 # ----------FUNCTIONS DEFINITIONS---------------
@@ -69,11 +70,14 @@ def video_plot_creator(h_position_list, b_position_list, fr_list, h_id_list, b_i
     canvas = FigureCanvas(fig)
     video_writer = cv2.VideoWriter(title, cv2.VideoWriter_fourcc(*'XVID'), 30, (640, 480))
     # for i in tqdm.tqdm(range(0, len(fr_list))):
-    for i in tqdm.tqdm(range(0, 100)):
+    for i in tqdm.tqdm(range(0, 300)):
         plt.clf()
-        ax1 = fig.add_subplot(1, 2, 1)
-        ax2 = fig.add_subplot(1, 2, 2)
+        plt.title("Frame: " + str(i))
+        axl = fig.add_subplot(1, 3, 1)
+        axc = fig.add_subplot(1, 3, 2)
+        axr = fig.add_subplot(1, 3, 3)
 
+        # Central IMAGE
         h_position = h_position_list[h_id_list[i]]
         b_position = b_position_list[b_id_list[i]]
         h_orientation = h_or_list[h_id_list[i]]
@@ -86,25 +90,40 @@ def video_plot_creator(h_position_list, b_position_list, fr_list, h_id_list, b_i
             frame.append(b)
         reshaped_fr = np.reshape(np.array(frame, dtype=np.int64), (480, 856, 3))
         reshaped_fr = reshaped_fr.astype(np.uint8)
+        axc.imshow(reshaped_fr)
+        axc.set_axis_off()
 
-        ax1.imshow(reshaped_fr)
-        plt.title("Frame: " + str(i))
-        ax2.axis([-2.4, 2.4, -2.4, 2.4])
+        # RIGHT PLOT
+        axr.axis([-2.4, 2.4, -2.4, 2.4], 'equals')
 
-        h_theta = h_orientation[2]
-        b_theta = b_orientation[2]
+        h_theta = quat_to_eul(h_orientation)[2]
+        b_theta = quat_to_eul(b_orientation)[2]
         arrow_length = 0.3
         spacing = 1.2
         minor_locator = MultipleLocator(spacing)
 
         # Set minor tick locations.
-        ax2.yaxis.set_minor_locator(minor_locator)
-        ax2.xaxis.set_minor_locator(minor_locator)
+        axr.yaxis.set_minor_locator(minor_locator)
+        axr.xaxis.set_minor_locator(minor_locator)
         # Set grid to use minor tick locations.
-        ax2.grid(which='minor')
-        ax2.plot(b_position.x, b_position.y, "ro", h_position.x, h_position.y, "go")
-        ax2.arrow(h_position.x, h_position.y, arrow_length * np.cos(h_theta), arrow_length * np.sin(h_theta), head_width=0.05, head_length=0.1, fc='g', ec='g')
-        ax2.arrow(b_position.x, b_position.y, arrow_length * np.cos(b_theta), arrow_length * np.sin(b_theta), head_width=0.05, head_length=0.1, fc='r', ec='r')
+        axr.grid(which='minor')
+
+        # plt.grid(True)
+        axr.plot(b_position.x, b_position.y, "ro", h_position.x, h_position.y, "go")
+        axr.arrow(h_position.x, h_position.y, arrow_length * np.cos(h_theta), arrow_length * np.sin(h_theta), head_width=0.05, head_length=0.1, fc='g', ec='g')
+        axr.arrow(b_position.x, b_position.y, arrow_length * np.cos(b_theta), arrow_length * np.sin(b_theta), head_width=0.05, head_length=0.1, fc='r', ec='r')
+
+        # LEFT PLOT
+        # transform from head to world to drone then compute atan2
+        p, q = jerome_method(b_position, b_orientation, h_position, h_orientation)
+
+        horizontal_angle = math.degrees(math.atan2(p[1], p[0]))
+        vertical_angle = math.degrees(math.atan2(p[2], p[0]))
+        axl.set_xbound(-90, 90)
+        axl.set_ybound(-90, 90)
+        axl.axis([-90, 90, -90, 90], 'equal')
+
+        axl.plot(horizontal_angle, vertical_angle, "go")
 
         canvas.draw()
         width, height = fig.get_size_inches() * fig.get_dpi()
@@ -114,6 +133,7 @@ def video_plot_creator(h_position_list, b_position_list, fr_list, h_id_list, b_i
 
     video_writer.release()
     cv2.destroyAllWindows()
+
 
 # Conversions
 def time_conversion_to_nano(sec, nano):
@@ -149,6 +169,7 @@ def quat_to_eul(orientation):
 def find_nearest(array, value):
     return (np.abs(array - value)).argmin()
 
+
 # export ROS_MASTER_URI=http://192.168.201.4:11311
 
 def get_bag_data(bag_file):
@@ -163,7 +184,7 @@ def get_bag_data(bag_file):
         hat_times.append(time_conversion_to_nano(secs, nsecs))
 
         hat_positions.append(hat.pose.position)
-        hat_orientaions.append(quat_to_eul(hat.pose.orientation))
+        hat_orientaions.append(hat.pose.orientation)
 
     bebop_positions = []
     bebop_orientaions = []
@@ -173,7 +194,7 @@ def get_bag_data(bag_file):
         nsecs = t.nsecs
         bebop_times.append(time_conversion_to_nano(secs, nsecs))
         bebop_positions.append(bebop.pose.position)
-        bebop_orientaions.append(quat_to_eul(bebop.pose.orientation))
+        bebop_orientaions.append(bebop.pose.orientation)
 
     frames = []
     camera_times = []
@@ -231,8 +252,8 @@ def plotter(h_position_list, b_position_list, fr_list, h_id_list, b_id_list, h_o
         # RIGHT PLOT
         axr.axis([-2.4, 2.4, -2.4, 2.4])
 
-        h_theta = h_orientation[2]
-        b_theta = b_orientation[2]
+        h_theta = quat_to_eul(h_orientation)[2]
+        b_theta = quat_to_eul(b_orientation)[2]
         arrow_length = 0.3
         spacing = 1.2
         minor_locator = MultipleLocator(spacing)
@@ -250,9 +271,10 @@ def plotter(h_position_list, b_position_list, fr_list, h_id_list, b_id_list, h_o
 
         # LEFT PLOT
         # transform from head to world to drone then compute atan2
-
-        horizontal_angle = math.atan2(h_position.y, h_position.x)
-        vertical_angle = math.atan2(h_position.z, h_position.x)
+        p, q = jerome_method(b_position, b_orientation, h_position, h_orientation)
+        horizontal_angle = math.atan2(p[1], p[0])
+        vertical_angle = math.atan2(p[2], p[0])
+        axl.axis([-1, 1, -1, 1])
         axl.plot(horizontal_angle, vertical_angle, "go")
 
         # general plot stuff
@@ -273,6 +295,27 @@ def py_voice(text_to_speak="Computing Completed", l='en'):
     tts.save('voice.mp3')
     # os.system('/voice.mp3')
     call(["cvlc", "voice.mp3", '--play-and-exit'])
+
+
+def quat_to_array(q):
+    ret = np.zeros((4))
+    ret[0] = q.x
+    ret[1] = q.y
+    ret[2] = q.z
+    ret[3] = q.w
+    return ret
+
+
+def jerome_method(p_1, q_1, p_2, q_2):  # relative pose of 2 wrt 1
+    np_q_1 = quat_to_array(q_1)
+    np_q_2 = quat_to_array(q_2)
+    cq_1 = quaternion_conjugate(np_q_1)
+    np_p_2 = np.array([p_2.x, p_2.y, p_2.z])
+    np_p_1 = np.array([p_1.x, p_1.y, p_1.z])
+    p = np.concatenate([np_p_2 - np_p_1, [0]])
+    p = quaternion_multiply(cq_1, quaternion_multiply(p, np_q_2))[:3]
+    q = quaternion_multiply(cq_1, np_q_2)
+    return p, q
 
 
 # endregion
@@ -325,9 +368,9 @@ def main():
         distances[i][0] = camera_np_array[i]
         distances[i][1] = distance.pdist([hat_points[i], bebop_points[i]], 'euclidean')
 
-    # plotter(hat_position_list, bebop_position_list, frame_list, hat_idx_nearest, bebop_idx_nearest,hat_orientation_list, bebop_orientation_list)
-
-    video_plot_creator(hat_position_list, bebop_position_list, frame_list, hat_idx_nearest, bebop_idx_nearest, hat_orientation_list, bebop_orientation_list,"main_plot.avi")
+    # plotter(hat_position_list, bebop_position_list, frame_list, hat_idx_nearest, bebop_idx_nearest, hat_orientation_list, bebop_orientation_list)
+    #
+    video_plot_creator(hat_position_list, bebop_position_list, frame_list, hat_idx_nearest, bebop_idx_nearest, hat_orientation_list, bebop_orientation_list, "main_plot.avi")
 
     # plot_times(bebop_time_list,hat_time_list,camera_time_list)
 
