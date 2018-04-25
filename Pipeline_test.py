@@ -66,12 +66,13 @@ def video_creator(dists, fr_list, title='selected'):
 
 
 def video_plot_creator(h_position_list, b_position_list, fr_list, h_id_list, b_id_list, h_or_list, b_or_list, title="test.avi"):
-    fig = plt.figure()
-    canvas = FigureCanvas(fig)
     video_writer = cv2.VideoWriter(title, cv2.VideoWriter_fourcc(*'XVID'), 30, (640, 480))
     # for i in tqdm.tqdm(range(0, len(fr_list))):
     for i in tqdm.tqdm(range(0, 300)):
-        plt.clf()
+        # fig = plt.figure(dpi=150)
+        fig = plt.figure()
+        canvas = FigureCanvas(fig)
+        # plt.clf()
         plt.title("Frame: " + str(i))
         axl = fig.add_subplot(1, 3, 1)
         axc = fig.add_subplot(1, 3, 2)
@@ -130,6 +131,7 @@ def video_plot_creator(h_position_list, b_position_list, fr_list, h_id_list, b_i
         img = np.fromstring(canvas.tostring_rgb(), dtype='uint8').reshape(height, width, 3)
         img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
         video_writer.write(img)
+        plt.close(fig)
 
     video_writer.release()
     cv2.destroyAllWindows()
