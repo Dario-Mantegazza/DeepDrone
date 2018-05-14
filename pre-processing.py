@@ -25,115 +25,82 @@ from tf.transformations import (quaternion_conjugate, quaternion_multiply)
 # region Def
 
 # Video Creation
-def video_data_creator(h_position_list, b_position_list, dists, fr_list, h_id_list, b_id_list):
-    file_list = []
-    for i in range(0, len(fr_list)):
-        img = Image.open(io.BytesIO(fr_list[i]))
-        h_position = h_position_list[h_id_list[i]]
-        b_position = b_position_list[b_id_list[i]]
-        draw = ImageDraw.Draw(img)
-        textprint = "Dist: " + str(dists[i][1]) + "\n" + "drone:\n" + "   x:" + str(
-            b_position.x) + "\n" + "   y:" + str(b_position.y) + "\n" + "   z:" + str(
-            b_position.z) + "\n" + "head:\n" + "   x:" + str(h_position.x) + "\n" + "   y:" + str(
-            h_position.y) + "\n" + "   z:" + str(h_position.z)
-        draw.text((5, 5), textprint, (255, 255, 255))
-        png_path = "images/frame" + str(i) + ".png"
-        img.save(png_path, "PNG")
-        file_list.append(png_path)
 
-    writer = imageio.get_writer('test.mp4', fps=30)
-    for im in file_list:
-        writer.append_data(imageio.imread(im))
-    writer.close()
+class VideoCreator():
+    def __init__(self, b_orientation, b_position, frame_list, h_orientation, h_position, title="test.avi"):
+        self.video_writer = cv2.VideoWriter(title, cv2.VideoWriter_fourcc(*'XVID'), 30, (640, 480))
+        self.b_orientation = b_orientation
+        self.b_position = b_position
+        self.frame_list = frame_list
+        self.h_orientation = h_orientation
+        self.h_position = h_position
+        self.fig = plt.figure()
+        self.axl = self.fig.add_subplot(1, 3, 1)
+        self.axc = self.fig.add_subplot(1, 3, 2)
+        self.axr = self.fig.add_subplot(1, 3, 3)
 
+    def plotting_function(self, i):
 
-def video_creator(dists, fr_list, title='selected'):
-    file_list = []
-    for i in range(0, len(fr_list)):
-        # for i in range(0, 500):
-        img = Image.open(io.BytesIO(fr_list[i]))
-        draw = ImageDraw.Draw(img)
-        textprint = "Dist: " + str(dists[i][1])
-        draw.text((5, 5), textprint, (255, 255, 255))
-        png_path = "images/" + title + "_" + str(i) + ".png"
-        img.save(png_path, "PNG")
-        file_list.append(png_path)
-
-    writer = imageio.get_writer(title + '.mp4', fps=2)
-    for im in file_list:
-        writer.append_data(imageio.imread(im))
-    writer.close()
-
-
-def video_plot_creator(h_position_list, b_position_list, fr_list, h_id_list, b_id_list, h_or_list, b_or_list, title="test.avi"):
-    video_writer = cv2.VideoWriter(title, cv2.VideoWriter_fourcc(*'XVID'), 30, (640, 480))
-    for i in tqdm.tqdm(range(0, len(fr_list))):
-    # for i in tqdm.tqdm(range(0, 300)):
-        # fig = plt.figure(dpi=150)
-        fig = plt.figure()
-        canvas = FigureCanvas(fig)
+        canvas = FigureCanvas(self.fig)
         # plt.clf()
         plt.title("Frame: " + str(i))
-        axl = fig.add_subplot(1, 3, 1)
-        axc = fig.add_subplot(1, 3, 2)
-        axr = fig.add_subplot(1, 3, 3)
 
         # Central IMAGE
-        h_position = h_position_list[h_id_list[i]]
-        b_position = b_position_list[b_id_list[i]]
-        h_orientation = h_or_list[h_id_list[i]]
-        b_orientation = b_or_list[b_id_list[i]]
-
-        img = Image.open(io.BytesIO(fr_list[i]))
+        img = Image.open(io.BytesIO(self.frame_list[i]))
         raw_frame = list(img.getdata())
         frame = []
         for b in raw_frame:
             frame.append(b)
         reshaped_fr = np.reshape(np.array(frame, dtype=np.int64), (480, 856, 3))
         reshaped_fr = reshaped_fr.astype(np.uint8)
-        axc.imshow(reshaped_fr)
-        axc.set_axis_off()
+        self.axc.imshow(reshaped_fr)
+        self.axc.set_axis_off()
 
         # RIGHT PLOT
-        axr.axis([-2.4, 2.4, -2.4, 2.4], 'equals')
 
-        h_theta = quat_to_eul(h_orientation)[2]
-        b_theta = quat_to_eul(b_orientation)[2]
+        self.axr.axis([-2.4, 2.4, -2.4, 2.4], 'equals')
+        h_theta = quat_to_eul(self.h_orientation[i])[2]
+        b_theta = quat_to_eul(self.b_orientation[i])[2]
         arrow_length = 0.3
         spacing = 1.2
         minor_locator = MultipleLocator(spacing)
-
         # Set minor tick locations.
-        axr.yaxis.set_minor_locator(minor_locator)
-        axr.xaxis.set_minor_locator(minor_locator)
+        self.axr.yaxis.set_minor_locator(minor_locator)
+        self.axr.xaxis.set_minor_locator(minor_locator)
         # Set grid to use minor tick locations.
-        axr.grid(which='minor')
-
+        self.axr.grid(which='minor')
         # plt.grid(True)
-        axr.plot(b_position.x, b_position.y, "ro", h_position.x, h_position.y, "go")
-        axr.arrow(h_position.x, h_position.y, arrow_length * np.cos(h_theta), arrow_length * np.sin(h_theta), head_width=0.05, head_length=0.1, fc='g', ec='g')
-        axr.arrow(b_position.x, b_position.y, arrow_length * np.cos(b_theta), arrow_length * np.sin(b_theta), head_width=0.05, head_length=0.1, fc='r', ec='r')
+        self.axr.plot(self.b_position[i].x, self.b_position[i].y, "ro", self.h_position[i].x, self.h_position[i].y, "go")
+        self.axr.arrow(self.h_position[i].x, self.h_position[i].y, arrow_length * np.cos(h_theta), arrow_length * np.sin(h_theta), head_width=0.05, head_length=0.1, fc='g', ec='g')
+        self.axr.arrow(self.b_position[i].x, self.b_position[i].y, arrow_length * np.cos(b_theta), arrow_length * np.sin(b_theta), head_width=0.05, head_length=0.1, fc='r', ec='r')
 
         # LEFT PLOT
         # transform from head to world to drone then compute atan2
-        p, q = jerome_method(b_position, b_orientation, h_position, h_orientation)
-
+        p, q = jerome_method(self.b_position[i], self.b_orientation[i], self.h_position[i], self.h_orientation[i])
         horizontal_angle = math.degrees(math.atan2(p[1], p[0]))
         vertical_angle = math.degrees(math.atan2(p[2], p[0]))
-        axl.set_xbound(75, 125)
-        axl.set_ybound(-90, 90)
-        axl.axis([75, 125, -90,90], 'equal')
-        axl.plot(horizontal_angle, vertical_angle, "go")
+        self.axl.set_xbound(75, 125)
+        self.axl.set_ybound(-90, 90)
+        self.axl.axis([75, 125, -90, 90], 'equal')
+        self.axl.plot(horizontal_angle, vertical_angle, "go")
 
+        # Drawing the plot
         canvas.draw()
-        width, height = fig.get_size_inches() * fig.get_dpi()
+        width, height = self.fig.get_size_inches() * self.fig.get_dpi()
         img = np.fromstring(canvas.tostring_rgb(), dtype='uint8').reshape(height, width, 3)
         img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-        video_writer.write(img)
-        plt.close(fig)
+        self.video_writer.write(img)
+        self.fig.clf()
 
-    video_writer.release()
-    cv2.destroyAllWindows()
+    def video_plot_creator(self):
+        max_ = len(self.frame_list)
+
+        # for i in tqdm.tqdm(range(0, max_)):
+        for i in tqdm.tqdm(range(0, 300)):
+            self.plotting_function(i)
+        self.video_writer.release()
+        cv2.destroyAllWindows()
+
 
 def jerome_method(p_1, q_1, p_2, q_2):  # relative pose of 2 wrt 1
     np_q_1 = quat_to_array(q_1)
@@ -145,6 +112,7 @@ def jerome_method(p_1, q_1, p_2, q_2):  # relative pose of 2 wrt 1
     p = quaternion_multiply(cq_1, quaternion_multiply(p, np_q_2))[:3]
     q = quaternion_multiply(cq_1, np_q_2)
     return p, q
+
 
 # Conversions
 def time_conversion_to_nano(sec, nano):
@@ -317,9 +285,6 @@ def quat_to_array(q):
     return ret
 
 
-
-
-
 # endregion
 # -------------------Main area----------------------
 def main():
@@ -330,7 +295,7 @@ def main():
     # info_dict = yaml.load(Bag('drone.bag', 'r')._get_yaml_info())
 
     # extract data from bag file
-    camera_time_list, frame_list, bebop_time_list, bebop_position_list, hat_time_list, hat_position_list, hat_orientation_list, bebop_orientation_list = get_bag_data(bag)
+    camera_time_list, frames_list, bebop_time_list, bebop_position_list, hat_time_list, hat_position_list, hat_orientation_list, bebop_orientation_list = get_bag_data(bag)
 
     # reformat some data as np array for future use
     camera_np_array = np.asarray(camera_time_list)
@@ -352,7 +317,10 @@ def main():
     vect_structure = (len(camera_np_array), 3)
     hat_points = np.zeros(vect_structure)
     bebop_points = np.zeros(vect_structure)
-
+    h_sel_positions = []
+    b_sel_positions = []
+    h_sel_orientations = []
+    b_sel_orientations = []
     # computing the distances array/matrix
     for i in range(0, len(camera_np_array)):
         head_position = hat_position_list[hat_idx_nearest[i]]
@@ -370,17 +338,14 @@ def main():
         distances[i][0] = camera_np_array[i]
         distances[i][1] = distance.pdist([hat_points[i], bebop_points[i]], 'euclidean')
 
-    # plotter(hat_position_list, bebop_position_list, frame_list, hat_idx_nearest, bebop_idx_nearest, hat_orientation_list, bebop_orientation_list)
-    #
-    video_plot_creator(hat_position_list, bebop_position_list, frame_list, hat_idx_nearest, bebop_idx_nearest, hat_orientation_list, bebop_orientation_list, "main_plot.avi")
+        h_sel_positions.append(head_position)
+        b_sel_positions.append(bebop_position)
+        h_sel_orientations.append(hat_orientation_list[hat_idx_nearest[i]])
+        b_sel_orientations.append(bebop_orientation_list[bebop_idx_nearest[i]])
 
-    # plot_times(bebop_time_list,hat_time_list,camera_time_list)
+    vidcr = VideoCreator(b_orientation=b_sel_orientations, b_position=b_sel_positions, frame_list=frames_list, h_orientation=h_sel_orientations, h_position=h_sel_positions, title="main_test.avi")
 
-    # far_frames_sel, far_dist_sel = get_distant_frame(distances, camera_np_array, frame_list, num=30)
-    # video_creator(far_dist_sel, far_frames_sel, title='far')
-    #
-    # near_frames_sel, near_dist_sel = get_near_frame(distances, camera_np_array, frame_list, num=30)
-    # video_creator(near_dist_sel, near_frames_sel, title='near')
+    vidcr.video_plot_creator()
 
     py_voice("Lavoro Completato", l='it')
 
