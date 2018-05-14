@@ -34,15 +34,14 @@ class VideoCreator():
         self.frame_list = frame_list
         self.h_orientation = h_orientation
         self.h_position = h_position
-        self.fig = plt.figure()
-        self.axl = self.fig.add_subplot(1, 3, 1)
-        self.axc = self.fig.add_subplot(1, 3, 2)
-        self.axr = self.fig.add_subplot(1, 3, 3)
+        
 
     def plotting_function(self, i):
-
-        canvas = FigureCanvas(self.fig)
-        # plt.clf()
+        fig = plt.figure()
+        axl = fig.add_subplot(1, 3, 1)
+        axc = fig.add_subplot(1, 3, 2)
+        axr = fig.add_subplot(1, 3, 3)
+        canvas = FigureCanvas(fig)
         plt.title("Frame: " + str(i))
 
         # Central IMAGE
@@ -53,50 +52,51 @@ class VideoCreator():
             frame.append(b)
         reshaped_fr = np.reshape(np.array(frame, dtype=np.int64), (480, 856, 3))
         reshaped_fr = reshaped_fr.astype(np.uint8)
-        self.axc.imshow(reshaped_fr)
-        self.axc.set_axis_off()
+        axc.imshow(reshaped_fr)
+        axc.set_axis_off()
 
         # RIGHT PLOT
 
-        self.axr.axis([-2.4, 2.4, -2.4, 2.4], 'equals')
+        axr.axis([-2.4, 2.4, -2.4, 2.4], 'equals')
         h_theta = quat_to_eul(self.h_orientation[i])[2]
         b_theta = quat_to_eul(self.b_orientation[i])[2]
         arrow_length = 0.3
         spacing = 1.2
         minor_locator = MultipleLocator(spacing)
         # Set minor tick locations.
-        self.axr.yaxis.set_minor_locator(minor_locator)
-        self.axr.xaxis.set_minor_locator(minor_locator)
+        axr.yaxis.set_minor_locator(minor_locator)
+        axr.xaxis.set_minor_locator(minor_locator)
         # Set grid to use minor tick locations.
-        self.axr.grid(which='minor')
+        axr.grid(which='minor')
         # plt.grid(True)
-        self.axr.plot(self.b_position[i].x, self.b_position[i].y, "ro", self.h_position[i].x, self.h_position[i].y, "go")
-        self.axr.arrow(self.h_position[i].x, self.h_position[i].y, arrow_length * np.cos(h_theta), arrow_length * np.sin(h_theta), head_width=0.05, head_length=0.1, fc='g', ec='g')
-        self.axr.arrow(self.b_position[i].x, self.b_position[i].y, arrow_length * np.cos(b_theta), arrow_length * np.sin(b_theta), head_width=0.05, head_length=0.1, fc='r', ec='r')
+        axr.plot(self.b_position[i].x, self.b_position[i].y, "ro", self.h_position[i].x, self.h_position[i].y, "go")
+        axr.arrow(self.h_position[i].x, self.h_position[i].y, arrow_length * np.cos(h_theta), arrow_length * np.sin(h_theta), head_width=0.05, head_length=0.1, fc='g', ec='g')
+        axr.arrow(self.b_position[i].x, self.b_position[i].y, arrow_length * np.cos(b_theta), arrow_length * np.sin(b_theta), head_width=0.05, head_length=0.1, fc='r', ec='r')
 
         # LEFT PLOT
         # transform from head to world to drone then compute atan2
         p, q = jerome_method(self.b_position[i], self.b_orientation[i], self.h_position[i], self.h_orientation[i])
         horizontal_angle = math.degrees(math.atan2(p[1], p[0]))
         vertical_angle = math.degrees(math.atan2(p[2], p[0]))
-        self.axl.set_xbound(75, 125)
-        self.axl.set_ybound(-90, 90)
-        self.axl.axis([75, 125, -90, 90], 'equal')
-        self.axl.plot(horizontal_angle, vertical_angle, "go")
+        axl.set_xbound(50, 125)
+        axl.set_ybound(-90, 90)
+        axl.axis([50, 125, -90, 90], 'equal')
+        axl.plot(horizontal_angle, vertical_angle, "go")
 
         # Drawing the plot
         canvas.draw()
-        width, height = self.fig.get_size_inches() * self.fig.get_dpi()
+        width, height = fig.get_size_inches() * fig.get_dpi()
         img = np.fromstring(canvas.tostring_rgb(), dtype='uint8').reshape(height, width, 3)
         img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
         self.video_writer.write(img)
-        self.fig.clf()
+        plt.close(fig)
 
     def video_plot_creator(self):
         max_ = len(self.frame_list)
 
         # for i in tqdm.tqdm(range(0, max_)):
-        for i in tqdm.tqdm(range(0, 300)):
+        # for i in tqdm.tqdm(range(0, 300)):
+        for i in tqdm.tqdm(range(300, 500)):
             self.plotting_function(i)
         self.video_writer.release()
         cv2.destroyAllWindows()
