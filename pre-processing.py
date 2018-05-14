@@ -67,8 +67,8 @@ def video_creator(dists, fr_list, title='selected'):
 
 def video_plot_creator(h_position_list, b_position_list, fr_list, h_id_list, b_id_list, h_or_list, b_or_list, title="test.avi"):
     video_writer = cv2.VideoWriter(title, cv2.VideoWriter_fourcc(*'XVID'), 30, (640, 480))
-    # for i in tqdm.tqdm(range(0, len(fr_list))):
-    for i in tqdm.tqdm(range(0, 300)):
+    for i in tqdm.tqdm(range(0, len(fr_list))):
+    # for i in tqdm.tqdm(range(0, 300)):
         # fig = plt.figure(dpi=150)
         fig = plt.figure()
         canvas = FigureCanvas(fig)
@@ -120,10 +120,9 @@ def video_plot_creator(h_position_list, b_position_list, fr_list, h_id_list, b_i
 
         horizontal_angle = math.degrees(math.atan2(p[1], p[0]))
         vertical_angle = math.degrees(math.atan2(p[2], p[0]))
-        axl.set_xbound(0, 180)
+        axl.set_xbound(75, 125)
         axl.set_ybound(-90, 90)
-        axl.axis([0, 180, -90,90], 'equal')
-        # print(str(vertical_angle))
+        axl.axis([75, 125, -90,90], 'equal')
         axl.plot(horizontal_angle, vertical_angle, "go")
 
         canvas.draw()
