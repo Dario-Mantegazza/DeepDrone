@@ -120,10 +120,10 @@ def video_plot_creator(h_position_list, b_position_list, fr_list, h_id_list, b_i
 
         horizontal_angle = math.degrees(math.atan2(p[1], p[0]))
         vertical_angle = math.degrees(math.atan2(p[2], p[0]))
-        axl.set_xbound(-90, 90)
+        axl.set_xbound(0, 180)
         axl.set_ybound(-90, 90)
-        axl.axis([-90, 90, -90, 90], 'equal')
-
+        axl.axis([0, 180, -90,90], 'equal')
+        # print(str(vertical_angle))
         axl.plot(horizontal_angle, vertical_angle, "go")
 
         canvas.draw()
@@ -136,6 +136,16 @@ def video_plot_creator(h_position_list, b_position_list, fr_list, h_id_list, b_i
     video_writer.release()
     cv2.destroyAllWindows()
 
+def jerome_method(p_1, q_1, p_2, q_2):  # relative pose of 2 wrt 1
+    np_q_1 = quat_to_array(q_1)
+    np_q_2 = quat_to_array(q_2)
+    cq_1 = quaternion_conjugate(np_q_1)
+    np_p_2 = np.array([p_2.x, p_2.y, p_2.z])
+    np_p_1 = np.array([p_1.x, p_1.y, p_1.z])
+    p = np.concatenate([np_p_2 - np_p_1, [0]])
+    p = quaternion_multiply(cq_1, quaternion_multiply(p, np_q_2))[:3]
+    q = quaternion_multiply(cq_1, np_q_2)
+    return p, q
 
 # Conversions
 def time_conversion_to_nano(sec, nano):
@@ -308,16 +318,7 @@ def quat_to_array(q):
     return ret
 
 
-def jerome_method(p_1, q_1, p_2, q_2):  # relative pose of 2 wrt 1
-    np_q_1 = quat_to_array(q_1)
-    np_q_2 = quat_to_array(q_2)
-    cq_1 = quaternion_conjugate(np_q_1)
-    np_p_2 = np.array([p_2.x, p_2.y, p_2.z])
-    np_p_1 = np.array([p_1.x, p_1.y, p_1.z])
-    p = np.concatenate([np_p_2 - np_p_1, [0]])
-    p = quaternion_multiply(cq_1, quaternion_multiply(p, np_q_2))[:3]
-    q = quaternion_multiply(cq_1, np_q_2)
-    return p, q
+
 
 
 # endregion

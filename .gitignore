@@ -24,3 +24,5 @@ venv/
 *.avi
 
 mirko\.py
+
+*.h5
