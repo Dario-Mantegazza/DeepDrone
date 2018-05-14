@@ -79,8 +79,8 @@ class VideoCreator():
         horizontal_angle = math.degrees(math.atan2(p[1], p[0]))
         vertical_angle = math.degrees(math.atan2(p[2], p[0]))
         axl.set_xbound(50, 125)
-        axl.set_ybound(-90, 90)
-        axl.axis([50, 125, -90, 90], 'equal')
+        axl.set_ybound(-200, 200)
+        axl.axis([50, 125, -200, 200], 'equal')
         axl.plot(horizontal_angle, vertical_angle, "go")
 
         # Drawing the plot
@@ -94,9 +94,9 @@ class VideoCreator():
     def video_plot_creator(self):
         max_ = len(self.frame_list)
 
-        # for i in tqdm.tqdm(range(0, max_)):
+        for i in tqdm.tqdm(range(0, max_)):
         # for i in tqdm.tqdm(range(0, 300)):
-        for i in tqdm.tqdm(range(300, 500)):
+        # for i in tqdm.tqdm(range(300, 600)):
             self.plotting_function(i)
         self.video_writer.release()
         cv2.destroyAllWindows()
@@ -347,7 +347,7 @@ def main():
 
     vidcr.video_plot_creator()
 
-    py_voice("Lavoro Completato", l='it')
+    py_voice("Bip", l='it')
 
 
 if __name__ == "__main__":
