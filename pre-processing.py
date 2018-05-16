@@ -2,29 +2,31 @@
 
 import io
 import math
+import numpy as np
+from PIL import Image
+from matplotlib import pyplot as plt
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+from matplotlib.ticker import MultipleLocator
 from subprocess import call
 
 import cv2
-import imageio
-import tf
-import numpy as np
 import rosbag
-from PIL import Image
-from PIL import ImageDraw
-
+import tf
 import tqdm as tqdm
 from gtts import gTTS
-from matplotlib import pyplot as plt
-from matplotlib.ticker import MultipleLocator
-from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from scipy.spatial import distance
 from tf.transformations import (quaternion_conjugate, quaternion_multiply)
+# import transforms3d
+from transforms3d.derivations.quaternions import quat2mat
 
 
 # ----------FUNCTIONS DEFINITIONS---------------
-# region Def
+# region class video
 
-# Video Creation
+# Matrices (M) can be inverted using numpy.linalg.inv(M), be concatenated using
+# numpy.dot(M0, M1), or transform homogeneous coordinate arrays (v) using
+# numpy.dot(M, v) for shape (4, \*) column vectors, respectively
+# numpy.dot(v, M.T) for shape (\*, 4) row vectors ("array of points").
 
 class VideoCreator():
     def __init__(self, b_orientation, b_position, frame_list, h_orientation, h_position, title="test.avi"):
@@ -34,7 +36,6 @@ class VideoCreator():
         self.frame_list = frame_list
         self.h_orientation = h_orientation
         self.h_position = h_position
-        
 
     def plotting_function(self, i):
         fig = plt.figure()
@@ -75,12 +76,18 @@ class VideoCreator():
 
         # LEFT PLOT
         # transform from head to world to drone then compute atan2
-        p, q = jerome_method(self.b_position[i], self.b_orientation[i], self.h_position[i], self.h_orientation[i])
-        horizontal_angle = math.degrees(math.atan2(p[1], p[0]))
-        vertical_angle = math.degrees(math.atan2(p[2], p[0]))
-        axl.set_xbound(50, 125)
-        axl.set_ybound(-200, 200)
-        axl.axis([50, 125, -200, 200], 'equal')
+
+        # p, q = jerome_method(self.b_position[i], self.b_orientation[i], self.h_position[i], self.h_orientation[i])
+        # horizontal_angle = math.degrees(math.atan2(p[1], p[0]))
+        # vertical_angle = math.degrees(math.atan2(p[2], p[0]))
+
+        r_t_h = dario_method(self.b_position[i], self.b_orientation[i], self.h_position[i], self.h_orientation[i])
+        horizontal_angle = math.degrees(math.atan2(r_t_h[3, 1], r_t_h[3, 0]))
+        vertical_angle = math.degrees(math.atan2(r_t_h[3, 2], r_t_h[3, 0]))
+
+        axl.set_xbound(-180, 180)
+        axl.set_ybound(-180, 180)
+        axl.axis([-180, 180, -180, 180], 'equal')
         axl.plot(horizontal_angle, vertical_angle, "go")
 
         # Drawing the plot
@@ -94,26 +101,47 @@ class VideoCreator():
     def video_plot_creator(self):
         max_ = len(self.frame_list)
 
-        for i in tqdm.tqdm(range(0, max_)):
+        # for i in tqdm.tqdm(range(0, max_)):
         # for i in tqdm.tqdm(range(0, 300)):
-        # for i in tqdm.tqdm(range(300, 600)):
+        for i in tqdm.tqdm(range(300, 700)):
             self.plotting_function(i)
         self.video_writer.release()
         cv2.destroyAllWindows()
 
 
-def jerome_method(p_1, q_1, p_2, q_2):  # relative pose of 2 wrt 1
-    np_q_1 = quat_to_array(q_1)
-    np_q_2 = quat_to_array(q_2)
-    cq_1 = quaternion_conjugate(np_q_1)
-    np_p_2 = np.array([p_2.x, p_2.y, p_2.z])
-    np_p_1 = np.array([p_1.x, p_1.y, p_1.z])
-    p = np.concatenate([np_p_2 - np_p_1, [0]])
-    p = quaternion_multiply(cq_1, quaternion_multiply(p, np_q_2))[:3]
-    q = quaternion_multiply(cq_1, np_q_2)
+def jerome_method(p_b, q_b, p_h, q_h):  # relative pose of h wrt b
+    np_q_b = quat_to_array(q_b)
+    np_p_b = np.array([p_b.x, p_b.y, p_b.z])
+
+    np_q_h = quat_to_array(q_h)
+    np_p_h = np.array([p_h.x, p_h.y, p_h.z])
+
+    cq_b = quaternion_conjugate(np_q_b)
+    p = np.concatenate([np_p_h - np_p_b, [0]])
+    p = quaternion_multiply(np_q_b, quaternion_multiply(p, cq_b))[:3]
+    q = quaternion_multiply(cq_b, np_q_h)
     return p, q
 
 
+def rospose2homogmat(p, q):
+    w_r_o = np.array(quat2mat(quat_to_array(q))).astype(np.float64)  # rotation matrix of object wrt world frame
+    np_pose = np.array([[p.x], [p.y], [p.z]])
+    tempmat_b = np.hstack((w_r_o, np_pose))
+    w_r_o = np.vstack((tempmat_b, [0, 0, 0, 1]))
+    return w_r_o
+
+
+def dario_method(p_b, q_b, p_h, q_h):
+    w_t_b = rospose2homogmat(p_b, q_b)
+    w_t_h = rospose2homogmat(p_h, q_h)
+    inv_wtb = np.linalg.inv(w_t_b)
+    b_t_h = np.dot(inv_wtb, w_t_h)
+    return b_t_h
+
+
+# endregion
+
+# region altro
 # Conversions
 def time_conversion_to_nano(sec, nano):
     return (sec * 1000 * 1000 * 1000) + nano
