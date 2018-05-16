@@ -1,9 +1,14 @@
+import os
 from subprocess import call
 
 import numpy as np
+import keras
+import pandas as pd
 from gtts import gTTS
-from keras.layers import Dense, Dropout
+from keras.layers import Conv2D, MaxPooling2D
+from keras.layers import Dense, Activation, Flatten
 from keras.models import Sequential
+
 
 def py_voice(text_to_speak="Computing Completed", l='en'):
     tts = gTTS(text=text_to_speak, lang=l)
@@ -11,59 +16,51 @@ def py_voice(text_to_speak="Computing Completed", l='en'):
     call(["cvlc", "voice.mp3", '--play-and-exit'])
 
 
-'''Train a simple deep CNN on the CIFAR10 small images dataset.
-
-It gets to 75% validation accuracy in 25 epochs, and 79% after 50 epochs.
-(it's still underfitting at that point, though).
-'''
-
-# from __future__ import print_function
-import keras
-from keras.datasets import cifar10
-from keras.preprocessing.image import ImageDataGenerator
-from keras.models import Sequential
-from keras.layers import Dense, Dropout, Activation, Flatten
-from keras.layers import Conv2D, MaxPooling2D
-import os
+train = pd.read_pickle("./dataset/train.pickle").values
+validation = pd.read_pickle("./dataset/validation.pickle").values
 
 batch_size = 32
 num_classes = 1
-epochs = 100
+epochs = 15
 # data_augmentation = True
 num_predictions = 20
 save_dir = os.path.join(os.getcwd(), 'saved_models')
-model_name = 'keras_cifar10_trained_model.h5'
+model_name = 'keras_bebop_trained_model.h5'
 
 # The data, split between train and test sets:
-(x_train, y_train), (x_test, y_test) = cifar10.load_data()
+x_train = train[:, 0]
+x_train = np.vstack(x_train[:]).astype(np.float)
+x_train = np.reshape(x_train, (-1,114, 114, 3))
+y_train = train[:, 1]
+
+x_test = validation[:, 0]
+x_test = np.vstack(x_test[:]).astype(np.float)
+x_test = np.reshape(x_test, (-1,114, 114, 3))
+y_test = validation[:, 1]
+# (x_test, y_test) = validation
 print('x_train shape:', x_train.shape)
 print(x_train.shape[0], 'train samples')
 print(x_test.shape[0], 'test samples')
 
-# Convert class vectors to binary class matrices.
-y_train = keras.utils.to_categorical(y_train, num_classes)
-y_test = keras.utils.to_categorical(y_test, num_classes)
-
 model = Sequential()
 
-model.add(Conv2D(20, (6,6), padding='same', input_shape=x_train.shape[1:]))
+model.add(Conv2D(2, (6, 6), padding='same', input_shape=(114, 114, 3)))
 model.add(Activation('relu'))
 model.add(MaxPooling2D(pool_size=(3, 3)))
 
-model.add(Conv2D(50, (6,6), padding='same'))
+model.add(Conv2D(5, (6, 6), padding='same'))
 model.add(Activation('relu'))
 model.add(MaxPooling2D(pool_size=(2, 2)))
 
-model.add(Conv2D(100, (6,6), padding='same'))
+model.add(Conv2D(10, (6, 6), padding='same'))
 model.add(Activation('relu'))
 model.add(MaxPooling2D(pool_size=(2, 2)))
-
 
 model.add(Flatten())
-model.add(Dense(1024))
+model.add(Dense(64))
 model.add(Activation('relu'))
 # model.add(Dropout(0.5))
-model.add(Dense(256))
+model.add(Dense(16))
 model.add(Activation('relu'))
 # model.add(Dropout(0.5))
 model.add(Dense(num_classes))
@@ -73,7 +70,7 @@ model.add(Activation('sigmoid'))
 opt = keras.optimizers.rmsprop(lr=0.0001, decay=1e-6)
 
 # Let's train the model using RMSprop
-model.compile(loss='categorical_crossentropy',
+model.compile(loss='mean_squared_error',
               optimizer=opt,
               metrics=['accuracy'])
 
@@ -82,12 +79,11 @@ x_test = x_test.astype('float32')
 x_train /= 255
 x_test /= 255
 
-
 model.fit(x_train, y_train,
-              batch_size=batch_size,
-              epochs=epochs,
-              validation_data=(x_test, y_test),
-              shuffle=True)
+          batch_size=batch_size,
+          epochs=epochs,
+          validation_data=(x_test, y_test),
+          shuffle=True)
 # Save model and weights
 if not os.path.isdir(save_dir):
     os.makedirs(save_dir)
@@ -100,4 +96,4 @@ scores = model.evaluate(x_test, y_test, verbose=1)
 print('Test loss:', scores[0])
 print('Test accuracy:', scores[1])
 
-py_voice("Lavoro Completato", l='it')
+py_voice("Rete treinata", l='it')

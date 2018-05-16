@@ -26,3 +26,5 @@ venv/
 mirko\.py
 
 *.h5
+
+dataset/

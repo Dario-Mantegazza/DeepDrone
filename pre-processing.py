@@ -41,8 +41,8 @@ class DatasetCreator:
         self.h_orientation = h_orientation
         self.h_position = h_position
         max_ = len(self.frame_list)
-        for i in tqdm.tqdm(range(0, max_)):
-        # for i in tqdm.tqdm(range(0, 10)):
+        # for i in tqdm.tqdm(range(0, max_)):
+        for i in tqdm.tqdm(range(0, 10)):
             self.data_aggregator(i)
 
     def data_aggregator(self, i):
@@ -78,9 +78,11 @@ class DatasetCreator:
 
         # save in two different files
         val = pd.DataFrame(validation_set)
-        val.to_pickle("./dataset/validation.pickle")
         train = pd.DataFrame(train_set)
+        val.to_pickle("./dataset/validation.pickle")
         train.to_pickle("./dataset/train.pickle")
+
+
 
 
 class VideoCreator:
