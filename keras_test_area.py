@@ -4,6 +4,7 @@ from subprocess import call
 import numpy as np
 import keras
 import pandas as pd
+from sklearn.metrics import roc_auc_score
 from gtts import gTTS
 from keras.layers import Conv2D, MaxPooling2D
 from keras.layers import Dense, Activation, Flatten
@@ -30,12 +31,12 @@ model_name = 'keras_bebop_trained_model.h5'
 # The data, split between train and test sets:
 x_train = train[:, 0]
 x_train = np.vstack(x_train[:]).astype(np.float)
-x_train = np.reshape(x_train, (-1,114, 114, 3))
+x_train = np.reshape(x_train, (-1, 60, 107, 3))
 y_train = train[:, 1]
 
 x_test = validation[:, 0]
 x_test = np.vstack(x_test[:]).astype(np.float)
-x_test = np.reshape(x_test, (-1,114, 114, 3))
+x_test = np.reshape(x_test, (-1, 60, 107, 3))
 y_test = validation[:, 1]
 # (x_test, y_test) = validation
 print('x_train shape:', x_train.shape)
@@ -44,7 +45,7 @@ print(x_test.shape[0], 'test samples')
 
 model = Sequential()
 
-model.add(Conv2D(2, (6, 6), padding='same', input_shape=(114, 114, 3)))
+model.add(Conv2D(2, (6, 6), padding='same', input_shape=(60, 107, 3)))
 model.add(Activation('relu'))
 model.add(MaxPooling2D(pool_size=(3, 3)))
 
@@ -93,7 +94,11 @@ print('Saved trained model at %s ' % model_path)
 
 # Score trained model.
 scores = model.evaluate(x_test, y_test, verbose=1)
+y_pred = model.predict(x_test)
+
 print('Test loss:', scores[0])
 print('Test accuracy:', scores[1])
+print('Test AUC:', roc_auc_score(y_test.tolist(), y_pred.tolist()))
+
 
 py_voice("Rete treinata", l='it')

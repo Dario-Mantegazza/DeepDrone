@@ -21,7 +21,6 @@ from scipy.spatial import distance
 from tf.transformations import (quaternion_conjugate, quaternion_multiply)
 from transforms3d.derivations.quaternions import quat2mat
 
-
 # ----------FUNCTIONS DEFINITIONS---------------
 # region class video
 
@@ -29,20 +28,31 @@ from transforms3d.derivations.quaternions import quat2mat
 # numpy.dot(M0, M1), or transform homogeneous coordinate arrays (v) using
 # numpy.dot(M, v) for shape (4, \*) column vectors, respectively
 # numpy.dot(v, M.T) for shape (\*, 4) row vectors ("array of points").
+
+bag_file_cut = {
+    "1": 3150,
+    "2": 7000,
+    "3": 390,
+    "4": 1850,
+    "5": 3840,
+    "6": 1650
+}
+
+
 class DatasetCreator:
     def __init__(self):
         self.dataset = []
         pass
 
-    def generate_data(self, b_orientation, b_position, frame_list, h_orientation, h_position):
+    def generate_data(self, b_orientation, b_position, frame_list, h_orientation, h_position, f):
         self.b_orientation = b_orientation
         self.b_position = b_position
         self.frame_list = frame_list
         self.h_orientation = h_orientation
         self.h_position = h_position
-        max_ = len(self.frame_list)
-        # for i in tqdm.tqdm(range(0, max_)):
-        for i in tqdm.tqdm(range(0, 10)):
+        max_ = bag_file_cut[f[:-4]]
+        for i in tqdm.tqdm(range(0, max_)):
+        # for i in tqdm.tqdm(range(0, 10)):
             self.data_aggregator(i)
 
     def data_aggregator(self, i):
@@ -54,7 +64,7 @@ class DatasetCreator:
         reshaped_fr = np.reshape(np.array(frame, dtype=np.int64), (480, 856, 3))
         reshaped_fr = reshaped_fr.astype(np.uint8)
 
-        scaled_fr = cv2.resize(reshaped_fr, (114, 114))
+        scaled_fr = cv2.resize(reshaped_fr, (107, 60))
 
         r_t_h = matrix_method(self.b_position[i], self.b_orientation[i], self.h_position[i], self.h_orientation[i])
         horizontal_angle = -math.degrees(math.atan2(r_t_h[1, 3], r_t_h[0, 3]))
@@ -62,7 +72,7 @@ class DatasetCreator:
         label = int(horizontal_angle >= 0)
         self.dataset.append((scaled_fr, label))
 
-    def save_dataset(self):
+    def save_dataset(self, flag_train):
         random.seed(42)
 
         # shuffle randmly dataset
@@ -71,18 +81,18 @@ class DatasetCreator:
 
         # separate in train and vali
         data_lenght = len(shuffled_dataset)
-        validation_percentage = 0.10
-        split_index = int(data_lenght * validation_percentage)
-        validation_set = shuffled_dataset[:split_index]
-        train_set = shuffled_dataset[split_index:]
+        # validation_percentage = 0.10
+        # split_index = int(data_lenght * validation_percentage)
+        # validation_set = shuffled_dataset[:split_index]
+        # train_set = shuffled_dataset[split_index:]
 
-        # save in two different files
-        val = pd.DataFrame(validation_set)
-        train = pd.DataFrame(train_set)
-        val.to_pickle("./dataset/validation.pickle")
-        train.to_pickle("./dataset/train.pickle")
-
-
+        # save
+        if flag_train:
+            train = pd.DataFrame(shuffled_dataset)
+            train.to_pickle("./dataset/train.pickle")
+        else:
+            val = pd.DataFrame(shuffled_dataset)
+            val.to_pickle("./dataset/validation.pickle")
 
 
 class VideoCreator:
@@ -159,8 +169,8 @@ class VideoCreator:
     def video_plot_creator(self):
         max_ = len(self.frame_list)
 
-        # for i in tqdm.tqdm(range(0, max_)):
-        for i in tqdm.tqdm(range(0, 100)):
+        for i in tqdm.tqdm(range(0, max_)):
+            # for i in tqdm.tqdm(range(0, 100)):
             # for i in tqdm.tqdm(range(300, 700)):
             self.plotting_function(i)
         self.video_writer.release()
@@ -421,28 +431,52 @@ def data_pre_processing(bag):
 # endregion
 # -------------------Main area----------------------
 def main():
-    datacr = DatasetCreator()
-    path = "./bagfiles/"
-    files = [file for file in os.listdir(path) if file[-4:] == '.bag']
+    # datacr = DatasetCreator()
+    # path = "./bagfiles/"
+    # files = [f for f in os.listdir(path) if f[-4:] == '.bag']
+    #
+    #
+    # if not files:
+    #     print('No bag files found!')
+    #     return None
 
+    # for f in files:
+    #     bag = rosbag.Bag(path + f)
+    #     b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions = data_pre_processing(bag)
+    #     vidcr = VideoCreator(b_orientation=b_sel_orientations, b_position=b_sel_positions, frame_list=frames_list, h_orientation=h_sel_orientations, h_position=h_sel_positions,
+    #                          title="./video/" + file[:-4] + ".avi")
+    #     vidcr.video_plot_creator()
+    # py_voice("Video Creato!", l='it')
+    #
+
+    # train
+    datacr_train = DatasetCreator()
+    path = "./bagfiles/train/"
+    files = [f for f in os.listdir(path) if f[-4:] == '.bag']
     if not files:
         print('No bag files found!')
         return None
 
-    # for file in files:
-    #     bag = rosbag.Bag(path + file)
-    #     b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions = data_pre_processing(bag)
-    #     vidcr = VideoCreator(b_orientation=b_sel_orientations, b_position=b_sel_positions, frame_list=frames_list, h_orientation=h_sel_orientations, h_position=h_sel_positions, title="./video/"+file+".avi")
-    #     vidcr.video_plot_creator()
-    # py_voice("Video Creato!", l='it')
-
-
-
-    for file in files:
-        bag = rosbag.Bag(path + file)
+    for f in files:
+        bag = rosbag.Bag(path + f)
         b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions = data_pre_processing(bag)
-        datacr.generate_data(b_orientation=b_sel_orientations, b_position=b_sel_positions, frame_list=frames_list, h_orientation=h_sel_orientations, h_position=h_sel_positions)
-    datacr.save_dataset()
+        datacr_train.generate_data(b_orientation=b_sel_orientations, b_position=b_sel_positions, frame_list=frames_list, h_orientation=h_sel_orientations, h_position=h_sel_positions, f=f)
+    datacr_train.save_dataset(flag_train=True)
+
+    # validation
+    datacr_val = DatasetCreator()
+    path = "./bagfiles/validation/"
+    files = [f for f in os.listdir(path) if f[-4:] == '.bag']
+    if not files:
+        print('No bag files found!')
+        return None
+
+    for f in files:
+        bag = rosbag.Bag(path + f)
+        b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions = data_pre_processing(bag)
+        datacr_val.generate_data(b_orientation=b_sel_orientations, b_position=b_sel_positions, frame_list=frames_list, h_orientation=h_sel_orientations, h_position=h_sel_positions, f=f)
+    datacr_val.save_dataset(flag_train=False)
+
     py_voice("Dataset creato!", l='it')
 
 
