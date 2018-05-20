@@ -10,7 +10,7 @@ from matplotlib import pyplot as plt
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.ticker import MultipleLocator
 from subprocess import call
-
+from multiprocessing import Pool
 import cv2
 import pandas as pd
 import rosbag
@@ -36,6 +36,14 @@ bag_file_cut = {
     "4": 1850,
     "5": 3840,
     "6": 1650
+}
+bag_file_path = {
+    "1": "./bagfiles/train/",
+    "2": "./bagfiles/train/",
+    "3": "./bagfiles/validation/",
+    "4": "./bagfiles/validation/",
+    "5": "./bagfiles/train/",
+    "6": "./bagfiles/validation/"
 }
 
 
@@ -87,8 +95,9 @@ class DatasetCreator:
 
 
 class VideoCreator:
-    def __init__(self, b_orientation, b_position, frame_list, h_orientation, h_position, title="test.avi"):
+    def __init__(self, b_orientation, b_position, frame_list, h_orientation, h_position, f, title="test.avi"):
         self.fps = 30
+        self.f = f
         self.video_writer = cv2.VideoWriter(title, cv2.VideoWriter_fourcc(*'XVID'), self.fps, (640, 480))
         self.b_orientation = b_orientation
         self.b_position = b_position
@@ -166,7 +175,7 @@ class VideoCreator:
         plt.close(fig)
 
     def video_plot_creator(self):
-        max_ = len(self.frame_list)
+        max_ = bag_file_cut[self.f[:-4]]
 
         # for i in tqdm.tqdm(range(0, 100)):
         # for i in tqdm.tqdm(range(300, 700)):
@@ -373,36 +382,29 @@ def data_pre_processing(bag):
 # endregion
 # -------------------Main area----------------------
 def main():
-    path = "./bagfiles/train/"
+    path1 = "./bagfiles/train/"
+    path2 = "./bagfiles/validation/"
 
-    files = [f for f in os.listdir(path) if f[-4:] == '.bag']
-    if not files:
+    files1 = [f for f in os.listdir(path1) if f[-4:] == '.bag']
+    if not files1:
         print('No bag files found!')
         return None
-
-    for f in files:
-        print("\nreading bag: "+str(f))
-        bag = rosbag.Bag(path + f)
-        b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions = data_pre_processing(bag)
-        vidcr = VideoCreator(b_orientation=b_sel_orientations, b_position=b_sel_positions, frame_list=frames_list, h_orientation=h_sel_orientations, h_position=h_sel_positions, title="./video/" + f[:-4] + ".avi")
-        vidcr.video_plot_creator()
-    # py_voice("Video Creato!", l='it')
-
-    path = "./bagfiles/validation/"
-
-    files = [f for f in os.listdir(path) if f[-4:] == '.bag']
-    if not files:
+    files2 = [f for f in os.listdir(path2) if f[-4:] == '.bag']
+    if not files2:
         print('No bag files found!')
         return None
+    files = []
+    # comporre files
+    for f_ in files1:
+        files.append(f_)
+    for f_ in files2:
+        files.append(f_)
 
-    for f in files:
-        print(" ")
-        print("reading bag: " + str(f))
-        bag = rosbag.Bag(path + f)
-        b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions = data_pre_processing(bag)
-        vidcr = VideoCreator(b_orientation=b_sel_orientations, b_position=b_sel_positions, frame_list=frames_list, h_orientation=h_sel_orientations, h_position=h_sel_positions,
-                             title="./video/" + f[:-4] + ".avi")
-        vidcr.video_plot_creator()
+    pool = Pool(processes=6)
+    pool.map(bag_tovid, files)
+    pool.close()
+    pool.join()
+
     py_voice("Video Creato!", l='it')
 
     # # train
@@ -434,6 +436,17 @@ def main():
     # datacr_val.save_dataset(flag_train=False)
     #
     # py_voice("Dataset creato!", l='it')
+
+
+def bag_tovid(f):
+    path = bag_file_path[f[:-4]]
+    print("\nreading bag: " + str(f))
+    bag = rosbag.Bag(path + f)
+    b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions = data_pre_processing(bag)
+
+    vidcr = VideoCreator(b_orientation=b_sel_orientations, b_position=b_sel_positions, frame_list=frames_list, h_orientation=h_sel_orientations, h_position=h_sel_positions, f=f,
+                         title="./video/" + f[:-4] + ".avi")
+    vidcr.video_plot_creator()
 
 
 if __name__ == "__main__":
