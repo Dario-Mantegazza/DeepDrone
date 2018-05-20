@@ -82,14 +82,16 @@ class DatasetCreator:
 
     def save_dataset(self, flag_train):
         random.seed(42)
-        # shuffle randmly dataset
-        shuffled_dataset = list(self.dataset)
-        np.random.shuffle(shuffled_dataset)
         # save
         if flag_train:
+            shuffled_dataset = list(self.dataset)
+            np.random.shuffle(shuffled_dataset)
             train = pd.DataFrame(shuffled_dataset)
             train.to_pickle("./dataset/train.pickle")
         else:
+            shuffled_dataset = list(self.dataset)
+            # no shuffling for validation
+            # np.random.shuffle(shuffled_dataset)
             val = pd.DataFrame(shuffled_dataset)
             val.to_pickle("./dataset/validation.pickle")
 
@@ -106,6 +108,7 @@ class VideoCreator:
         self.h_position = h_position
 
     def plotting_function(self, i):
+        #TODO introduce pyqtgraph
         fig = plt.figure()
         axl = fig.add_subplot(1, 3, 1)
         axc = fig.add_subplot(1, 3, 2)
@@ -378,6 +381,16 @@ def data_pre_processing(bag):
         b_sel_orientations.append(bebop_orientation_list[bebop_idx_nearest[i]])
     return b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions
 
+def bag_tovid(f):
+    path = bag_file_path[f[:-4]]
+    print("\nreading bag: " + str(f))
+    bag = rosbag.Bag(path + f)
+    b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions = data_pre_processing(bag)
+
+    vidcr = VideoCreator(b_orientation=b_sel_orientations, b_position=b_sel_positions, frame_list=frames_list, h_orientation=h_sel_orientations, h_position=h_sel_positions, f=f,
+                         title="./video/" + f[:-4] + ".avi")
+    vidcr.video_plot_creator()
+    print("\nvideo : " + str(f[:-4]+" completed"))
 
 # endregion
 # -------------------Main area----------------------
@@ -437,16 +450,6 @@ def main():
     #
     # py_voice("Dataset creato!", l='it')
 
-
-def bag_tovid(f):
-    path = bag_file_path[f[:-4]]
-    print("\nreading bag: " + str(f))
-    bag = rosbag.Bag(path + f)
-    b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions = data_pre_processing(bag)
-
-    vidcr = VideoCreator(b_orientation=b_sel_orientations, b_position=b_sel_positions, frame_list=frames_list, h_orientation=h_sel_orientations, h_position=h_sel_positions, f=f,
-                         title="./video/" + f[:-4] + ".avi")
-    vidcr.video_plot_creator()
 
 
 if __name__ == "__main__":

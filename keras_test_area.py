@@ -1,20 +1,32 @@
+import io
+import numpy as np
 import os
+import sys
+from PIL import Image
+from matplotlib import pyplot as plt
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from subprocess import call
 
-import numpy as np
+sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
+from scipy import ndimage
+import cv2
 import keras
 import pandas as pd
-from sklearn.metrics import roc_auc_score
+import tqdm as tqdm
 from gtts import gTTS
 from keras.layers import Conv2D, MaxPooling2D
 from keras.layers import Dense, Activation, Flatten
 from keras.models import Sequential
+from sklearn.metrics import roc_auc_score
+
+
 
 
 def py_voice(text_to_speak="Computing Completed", l='en'):
     tts = gTTS(text=text_to_speak, lang=l)
     tts.save('voice.mp3')
     call(["cvlc", "voice.mp3", '--play-and-exit'])
+
 
 def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_train, y_test, y_train):
     model = Sequential()
@@ -63,11 +75,64 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
     print('Test loss:', scores[0])
     print('Test accuracy:', scores[1])
     print('Test AUC:', roc_auc_score(y_test.tolist(), y_pred.tolist()))
+    py_voice("Rete treinata. Creazione video", l='it')
+    vidcr = KerasVideoCreator(x_test=x_test, labels=y_test, preds=y_pred, title="./video/CNNresults.avi")
+    vidcr.video_plot_creator()
+    py_voice("Video validescion creato", l='it')
 
+
+class KerasVideoCreator:
+    def __init__(self, x_test, labels, preds, title="Validation.avi"):
+        self.fps = 2
+        self.width = 640
+        self.height = 480
+        self.video_writer = cv2.VideoWriter(title, cv2.VideoWriter_fourcc(*'XVID'), self.fps, (self.width, self.height))
+        self.frame_list = x_test
+        self.labels = labels
+        self.preds = preds
+        self.PADCOLOR = [200, 200, 200]
+
+    def plotting_function(self, i):
+        img = (255 * self.frame_list[i]).astype(np.uint8)
+        scaled = cv2.resize(img, (0, 0), fx=2, fy=2)
+        vert_p = 180
+        hor_p = 213
+        im_pad = cv2.copyMakeBorder(scaled, vert_p, vert_p, hor_p, hor_p, cv2.BORDER_CONSTANT, value=self.PADCOLOR)
+        im_final = cv2.cvtColor(im_pad, cv2.COLOR_RGB2BGR)
+
+        pt1 = (275, 50)
+        pt2 = (375, 50)
+        if self.labels[i] > 0:
+            cv2.arrowedLine(im_final, pt1, pt2, (0, 255, 0), 3)
+        else:
+            cv2.arrowedLine(im_final, pt2, pt1, (0, 255, 0), 3)
+
+        pt1 = (275, 25)
+        pt2 = (375, 25)
+        if self.preds[i] >= 0.5:
+            cv2.arrowedLine(im_final, pt1, pt2, (255, 0, 0), 3)
+        else:
+            cv2.arrowedLine(im_final, pt2, pt1, (255, 0, 0), 3)
+
+        x_p = 213 + int(214 * self.preds[i])
+        pt1_p = (x_p, 5)
+        pt2_p = (x_p, 20)
+        cv2.arrowedLine(im_final, pt1_p, pt2_p, (255, 0, 0), 3)
+
+        self.video_writer.write(im_final)
+
+    def video_plot_creator(self):
+        max_ = len(self.frame_list)
+        for i in tqdm.tqdm(range(0, max_)):
+            self.plotting_function(i)
+        self.video_writer.release()
+        cv2.destroyAllWindows()
 
 
 # -------------------Main area----------------------
 def main():
+    # sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
+
     train = pd.read_pickle("./dataset/train.pickle").values
     validation = pd.read_pickle("./dataset/validation.pickle").values
 
@@ -97,10 +162,6 @@ def main():
     # print("asd: ", sum(y_test)/len(y_test))
 
     CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_train, y_test, y_train)
-
-    py_voice("Rete treinata", l='it')
-
-
 
 
 if __name__ == "__main__":
