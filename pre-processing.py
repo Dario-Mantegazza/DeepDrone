@@ -52,7 +52,7 @@ class DatasetCreator:
         self.h_position = h_position
         max_ = bag_file_cut[f[:-4]]
         for i in tqdm.tqdm(range(0, max_)):
-        # for i in tqdm.tqdm(range(0, 10)):
+            # for i in tqdm.tqdm(range(0, 10)):
             self.data_aggregator(i)
 
     def data_aggregator(self, i):
@@ -74,18 +74,9 @@ class DatasetCreator:
 
     def save_dataset(self, flag_train):
         random.seed(42)
-
         # shuffle randmly dataset
         shuffled_dataset = list(self.dataset)
         np.random.shuffle(shuffled_dataset)
-
-        # separate in train and vali
-        data_lenght = len(shuffled_dataset)
-        # validation_percentage = 0.10
-        # split_index = int(data_lenght * validation_percentage)
-        # validation_set = shuffled_dataset[:split_index]
-        # train_set = shuffled_dataset[split_index:]
-
         # save
         if flag_train:
             train = pd.DataFrame(shuffled_dataset)
@@ -97,7 +88,8 @@ class DatasetCreator:
 
 class VideoCreator:
     def __init__(self, b_orientation, b_position, frame_list, h_orientation, h_position, title="test.avi"):
-        self.video_writer = cv2.VideoWriter(title, cv2.VideoWriter_fourcc(*'XVID'), 30, (640, 480))
+        self.fps = 30
+        self.video_writer = cv2.VideoWriter(title, cv2.VideoWriter_fourcc(*'XVID'), self.fps, (640, 480))
         self.b_orientation = b_orientation
         self.b_position = b_position
         self.frame_list = frame_list
@@ -151,7 +143,6 @@ class VideoCreator:
         r_t_h = matrix_method(self.b_position[i], self.b_orientation[i], self.h_position[i], self.h_orientation[i])
         horizontal_angle = -math.degrees(math.atan2(r_t_h[1, 3], r_t_h[0, 3]))
         vertical_angle = math.degrees(math.atan2(r_t_h[2, 3], r_t_h[0, 3]))
-
         value_angle_axis = 45
         axl.set_xbound(-value_angle_axis, value_angle_axis)
         axl.set_ybound(-value_angle_axis, value_angle_axis)
@@ -160,35 +151,43 @@ class VideoCreator:
 
         # Drawing the plot
         canvas.draw()
-        width, height = fig.get_size_inches() * fig.get_dpi()
+
+        width, height = (fig.get_size_inches() * fig.get_dpi()).astype(dtype='int32')
         img = np.fromstring(canvas.tostring_rgb(), dtype='uint8').reshape(height, width, 3)
         img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+        pt1 = (275, 25)
+        pt2 = (375, 25)
+        if horizontal_angle >= 0:
+            cv2.arrowedLine(img, pt1, pt2, (0, 0, 255), 3)
+        else:
+            cv2.arrowedLine(img, pt2, pt1, (0, 255, 0), 3)
+
         self.video_writer.write(img)
         plt.close(fig)
 
     def video_plot_creator(self):
         max_ = len(self.frame_list)
 
+        # for i in tqdm.tqdm(range(0, 100)):
+        # for i in tqdm.tqdm(range(300, 700)):
         for i in tqdm.tqdm(range(0, max_)):
-            # for i in tqdm.tqdm(range(0, 100)):
-            # for i in tqdm.tqdm(range(300, 700)):
             self.plotting_function(i)
         self.video_writer.release()
         cv2.destroyAllWindows()
 
 
-def jerome_method(p_b, q_b, p_h, q_h):  # relative pose of h wrt b
-    np_q_b = quat_to_array(q_b)
-    np_p_b = np.array([p_b.x, p_b.y, p_b.z])
-
-    np_q_h = quat_to_array(q_h)
-    np_p_h = np.array([p_h.x, p_h.y, p_h.z])
-
-    cq_b = quaternion_conjugate(np_q_b)
-    p = np.concatenate([np_p_h - np_p_b, [0]])
-    p = quaternion_multiply(np_q_b, quaternion_multiply(p, cq_b))[:3]
-    q = quaternion_multiply(cq_b, np_q_h)
-    return p, q
+# def jerome_method(p_b, q_b, p_h, q_h):  # relative pose of h wrt b
+#     np_q_b = quat_to_array(q_b)
+#     np_p_b = np.array([p_b.x, p_b.y, p_b.z])
+#
+#     np_q_h = quat_to_array(q_h)
+#     np_p_h = np.array([p_h.x, p_h.y, p_h.z])
+#
+#     cq_b = quaternion_conjugate(np_q_b)
+#     p = np.concatenate([np_p_h - np_p_b, [0]])
+#     p = quaternion_multiply(np_q_b, quaternion_multiply(p, cq_b))[:3]
+#     q = quaternion_multiply(cq_b, np_q_h)
+#     return p, q
 
 
 def rospose2homogmat(p, q):
@@ -300,63 +299,6 @@ def get_near_frame(dists, camera_times, frames, num=5):
     return frames_selected, sorted_distances[0:num]
 
 
-def plotter(h_position_list, b_position_list, fr_list, h_id_list, b_id_list, h_or_list, b_or_list):
-    fig = plt.figure()
-    for i in range(0, len(fr_list)):
-        plt.clf()
-        plt.title("Frame: " + str(i))
-        axl = fig.add_subplot(1, 3, 1)
-        axc = fig.add_subplot(1, 3, 2)
-        axr = fig.add_subplot(1, 3, 3)
-
-        # Central IMAGE
-        h_position = h_position_list[h_id_list[i]]
-        b_position = b_position_list[b_id_list[i]]
-        h_orientation = h_or_list[h_id_list[i]]
-        b_orientation = b_or_list[b_id_list[i]]
-
-        img = Image.open(io.BytesIO(fr_list[i]))
-        raw_frame = list(img.getdata())
-        frame = []
-        for b in raw_frame:
-            frame.append(b)
-        reshaped_fr = np.reshape(np.array(frame, dtype=np.int64), (480, 856, 3))
-        reshaped_fr = reshaped_fr.astype(np.uint8)
-        axc.imshow(reshaped_fr)
-
-        # RIGHT PLOT
-        axr.axis([-2.4, 2.4, -2.4, 2.4])
-
-        h_theta = quat_to_eul(h_orientation)[2]
-        b_theta = quat_to_eul(b_orientation)[2]
-        arrow_length = 0.3
-        spacing = 1.2
-        minor_locator = MultipleLocator(spacing)
-
-        # Set minor tick locations.
-        axr.yaxis.set_minor_locator(minor_locator)
-        axr.xaxis.set_minor_locator(minor_locator)
-        # Set grid to use minor tick locations.
-        axr.grid(which='minor')
-
-        # plt.grid(True)
-        axr.plot(b_position.x, b_position.y, "ro", h_position.x, h_position.y, "go")
-        axr.arrow(h_position.x, h_position.y, arrow_length * np.cos(h_theta), arrow_length * np.sin(h_theta), head_width=0.05, head_length=0.1, fc='g', ec='g')
-        axr.arrow(b_position.x, b_position.y, arrow_length * np.cos(b_theta), arrow_length * np.sin(b_theta), head_width=0.05, head_length=0.1, fc='r', ec='r')
-
-        # LEFT PLOT
-        # transform from head to world to drone then compute atan2
-        p, q = jerome_method(b_position, b_orientation, h_position, h_orientation)
-        horizontal_angle = math.atan2(p[1], p[0])
-        vertical_angle = math.atan2(p[2], p[0])
-        axl.axis([-1, 1, -1, 1])
-        axl.plot(horizontal_angle, vertical_angle, "go")
-
-        # general plot stuff
-        plt.show(block=False)
-        plt.pause(0.01)
-
-
 def plot_times(b_times, h_times, c_times):
     x1 = np.full((len(b_times)), 1)
     x2 = np.full((len(h_times)), 2)
@@ -431,53 +373,67 @@ def data_pre_processing(bag):
 # endregion
 # -------------------Main area----------------------
 def main():
-    # datacr = DatasetCreator()
-    # path = "./bagfiles/"
+    path = "./bagfiles/train/"
+
+    files = [f for f in os.listdir(path) if f[-4:] == '.bag']
+    if not files:
+        print('No bag files found!')
+        return None
+
+    for f in files:
+        print("\nreading bag: "+str(f))
+        bag = rosbag.Bag(path + f)
+        b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions = data_pre_processing(bag)
+        vidcr = VideoCreator(b_orientation=b_sel_orientations, b_position=b_sel_positions, frame_list=frames_list, h_orientation=h_sel_orientations, h_position=h_sel_positions, title="./video/" + f[:-4] + ".avi")
+        vidcr.video_plot_creator()
+    # py_voice("Video Creato!", l='it')
+
+    path = "./bagfiles/validation/"
+
+    files = [f for f in os.listdir(path) if f[-4:] == '.bag']
+    if not files:
+        print('No bag files found!')
+        return None
+
+    for f in files:
+        print(" ")
+        print("reading bag: " + str(f))
+        bag = rosbag.Bag(path + f)
+        b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions = data_pre_processing(bag)
+        vidcr = VideoCreator(b_orientation=b_sel_orientations, b_position=b_sel_positions, frame_list=frames_list, h_orientation=h_sel_orientations, h_position=h_sel_positions,
+                             title="./video/" + f[:-4] + ".avi")
+        vidcr.video_plot_creator()
+    py_voice("Video Creato!", l='it')
+
+    # # train
+    # datacr_train = DatasetCreator()
+    # path = "./bagfiles/train/"
     # files = [f for f in os.listdir(path) if f[-4:] == '.bag']
-    #
-    #
     # if not files:
     #     print('No bag files found!')
     #     return None
-
+    #
     # for f in files:
     #     bag = rosbag.Bag(path + f)
     #     b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions = data_pre_processing(bag)
-    #     vidcr = VideoCreator(b_orientation=b_sel_orientations, b_position=b_sel_positions, frame_list=frames_list, h_orientation=h_sel_orientations, h_position=h_sel_positions,
-    #                          title="./video/" + file[:-4] + ".avi")
-    #     vidcr.video_plot_creator()
-    # py_voice("Video Creato!", l='it')
+    #     datacr_train.generate_data(b_orientation=b_sel_orientations, b_position=b_sel_positions, frame_list=frames_list, h_orientation=h_sel_orientations, h_position=h_sel_positions, f=f)
+    # datacr_train.save_dataset(flag_train=True)
     #
-
-    # train
-    datacr_train = DatasetCreator()
-    path = "./bagfiles/train/"
-    files = [f for f in os.listdir(path) if f[-4:] == '.bag']
-    if not files:
-        print('No bag files found!')
-        return None
-
-    for f in files:
-        bag = rosbag.Bag(path + f)
-        b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions = data_pre_processing(bag)
-        datacr_train.generate_data(b_orientation=b_sel_orientations, b_position=b_sel_positions, frame_list=frames_list, h_orientation=h_sel_orientations, h_position=h_sel_positions, f=f)
-    datacr_train.save_dataset(flag_train=True)
-
-    # validation
-    datacr_val = DatasetCreator()
-    path = "./bagfiles/validation/"
-    files = [f for f in os.listdir(path) if f[-4:] == '.bag']
-    if not files:
-        print('No bag files found!')
-        return None
-
-    for f in files:
-        bag = rosbag.Bag(path + f)
-        b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions = data_pre_processing(bag)
-        datacr_val.generate_data(b_orientation=b_sel_orientations, b_position=b_sel_positions, frame_list=frames_list, h_orientation=h_sel_orientations, h_position=h_sel_positions, f=f)
-    datacr_val.save_dataset(flag_train=False)
-
-    py_voice("Dataset creato!", l='it')
+    # # validation
+    # datacr_val = DatasetCreator()
+    # path = "./bagfiles/validation/"
+    # files = [f for f in os.listdir(path) if f[-4:] == '.bag']
+    # if not files:
+    #     print('No bag files found!')
+    #     return None
+    #
+    # for f in files:
+    #     bag = rosbag.Bag(path + f)
+    #     b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions = data_pre_processing(bag)
+    #     datacr_val.generate_data(b_orientation=b_sel_orientations, b_position=b_sel_positions, frame_list=frames_list, h_orientation=h_sel_orientations, h_position=h_sel_positions, f=f)
+    # datacr_val.save_dataset(flag_train=False)
+    #
+    # py_voice("Dataset creato!", l='it')
 
 
 if __name__ == "__main__":
