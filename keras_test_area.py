@@ -1,16 +1,9 @@
-import io
-import numpy as np
 import os
-import sys
-from PIL import Image
-from matplotlib import pyplot as plt
-from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from subprocess import call
 
-sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
-from scipy import ndimage
 import cv2
 import keras
+import numpy as np
 import pandas as pd
 import tqdm as tqdm
 from gtts import gTTS
@@ -18,8 +11,6 @@ from keras.layers import Conv2D, MaxPooling2D
 from keras.layers import Dense, Activation, Flatten
 from keras.models import Sequential
 from sklearn.metrics import roc_auc_score
-
-
 
 
 def py_voice(text_to_speak="Computing Completed", l='en'):
@@ -83,7 +74,7 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
 
 class KerasVideoCreator:
     def __init__(self, x_test, labels, preds, title="Validation.avi"):
-        self.fps = 2
+        self.fps = 30
         self.width = 640
         self.height = 480
         self.video_writer = cv2.VideoWriter(title, cv2.VideoWriter_fourcc(*'XVID'), self.fps, (self.width, self.height))
@@ -131,8 +122,6 @@ class KerasVideoCreator:
 
 # -------------------Main area----------------------
 def main():
-    # sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
-
     train = pd.read_pickle("./dataset/train.pickle").values
     validation = pd.read_pickle("./dataset/validation.pickle").values
 
