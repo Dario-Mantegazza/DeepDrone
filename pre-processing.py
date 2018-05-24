@@ -1,5 +1,4 @@
 # --------------------IMPORT-------------------
-
 import io
 import math
 import numpy as np
@@ -24,18 +23,31 @@ from transforms3d.derivations.quaternions import quat2mat
 # ----------FUNCTIONS DEFINITIONS---------------
 # region class video
 
-# Matrices (M) can be inverted using numpy.linalg.inv(M), be concatenated using
-# numpy.dot(M0, M1), or transform homogeneous coordinate arrays (v) using
-# numpy.dot(M, v) for shape (4, \*) column vectors, respectively
-# numpy.dot(v, M.T) for shape (\*, 4) row vectors ("array of points").
-
-bag_file_cut = {
+bag_end_cut = {
     "1": 3150,
     "2": 7000,
     "3": 390,
     "4": 1850,
     "5": 3840,
-    "6": 1650
+    "6": 1650,
+    "7": 2145,
+    "8": 595,
+    "9": 1065,
+    "10": 2089,
+    "11": 1370
+}
+bag_start_cut = {
+    "1": 0,
+    "2": 0,
+    "3": 0,
+    "4": 0,
+    "5": 0,
+    "6": 0,
+    "7": 58,
+    "8": 63,
+    "9": 75,
+    "10": 50,
+    "11": 0
 }
 bag_file_path = {
     "1": "./bagfiles/train/",
@@ -43,7 +55,12 @@ bag_file_path = {
     "3": "./bagfiles/validation/",
     "4": "./bagfiles/validation/",
     "5": "./bagfiles/train/",
-    "6": "./bagfiles/validation/"
+    "6": "./bagfiles/validation/",
+    "7": "./bagfiles/train/",
+    "8": "./bagfiles/train/",
+    "9": "./bagfiles/train/",
+    "10": "./bagfiles/validation/",
+    "11": "./bagfiles/validation/"
 }
 
 
@@ -58,8 +75,9 @@ class DatasetCreator:
         self.frame_list = frame_list
         self.h_orientation = h_orientation
         self.h_position = h_position
-        max_ = bag_file_cut[f[:-4]]
-        for i in tqdm.tqdm(range(0, max_)):
+        max_ = bag_end_cut[f[:-4]]
+        min_ = bag_start_cut[f[:-4]]
+        for i in tqdm.tqdm(range(min_, max_)):
             # for i in tqdm.tqdm(range(0, 10)):
             self.data_aggregator(i)
 
@@ -398,7 +416,7 @@ def bag_tovid(f):
 # endregion
 # -------------------Main area----------------------
 def main():
-    scelta = input("Video o dataset:[v/d]")
+    scelta = raw_input("Video o dataset:[v/d]")
     if scelta == "v":
         path1 = "./bagfiles/train/"
         path2 = "./bagfiles/validation/"
