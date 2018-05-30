@@ -69,12 +69,16 @@ class DatasetCreator:
         self.dataset = []
         pass
 
-    def generate_data(self, b_orientation, b_position, frame_list, h_orientation, h_position, f):
+    # noinspection PyAttributeOutsideInit
+    def generate_data(self, flag, mean_dist, distances, b_orientation, b_position, frame_list, h_orientation, h_position, f):
         self.b_orientation = b_orientation
         self.b_position = b_position
         self.frame_list = frame_list
         self.h_orientation = h_orientation
         self.h_position = h_position
+        self.flag = flag
+        self.mean_dist = mean_dist
+        self.distances = distances
         max_ = bag_end_cut[f[:-4]]
         min_ = bag_start_cut[f[:-4]]
         for i in tqdm.tqdm(range(min_, max_)):
@@ -92,10 +96,19 @@ class DatasetCreator:
 
         scaled_fr = cv2.resize(reshaped_fr, (107, 60))
 
-        r_t_h = matrix_method(self.b_position[i], self.b_orientation[i], self.h_position[i], self.h_orientation[i])
-        horizontal_angle = -math.degrees(math.atan2(r_t_h[1, 3], r_t_h[0, 3]))
-        # vertical_angle = math.degrees(math.atan2(r_t_h[2, 3], r_t_h[0, 3]))
-        label = int(horizontal_angle >= 0)
+        if self.flag == 'dist':
+            label = int(self.distances[i] >= self.mean_dist)
+        elif self.flag == 'angle':
+            r_t_h = matrix_method(self.b_position[i], self.b_orientation[i], self.h_position[i], self.h_orientation[i])
+            horizontal_angle = -math.degrees(math.atan2(r_t_h[1, 3], r_t_h[0, 3]))
+            # vertical_angle = math.degrees(math.atan2(r_t_h[2, 3], r_t_h[0, 3]))
+            label = int(horizontal_angle >= 0)
+        else:  # should be both
+            r_t_h = matrix_method(self.b_position[i], self.b_orientation[i], self.h_position[i], self.h_orientation[i])
+            horizontal_angle = -math.degrees(math.atan2(r_t_h[1, 3], r_t_h[0, 3]))
+            # vertical_angle = math.degrees(math.atan2(r_t_h[2, 3], r_t_h[0, 3]))
+            label = int(horizontal_angle >= 0)
+
         self.dataset.append((scaled_fr, label))
 
     def save_dataset(self, flag_train):
@@ -109,13 +122,12 @@ class DatasetCreator:
         else:
             shuffled_dataset = list(self.dataset)
             # no shuffling for validation
-            # np.random.shuffle(shuffled_dataset)
             val = pd.DataFrame(shuffled_dataset)
             val.to_pickle("./dataset/validation.pickle")
 
 
 class VideoCreator:
-    def __init__(self, b_orientation, b_position, frame_list, h_orientation, h_position, f, title="test.avi"):
+    def __init__(self, b_orientation, distances, b_position, frame_list, h_orientation, h_position, f, title="test.avi"):
         self.fps = 30
         self.f = f
         self.video_writer = cv2.VideoWriter(title, cv2.VideoWriter_fourcc(*'XVID'), self.fps, (640, 480))
@@ -124,6 +136,7 @@ class VideoCreator:
         self.frame_list = frame_list
         self.h_orientation = h_orientation
         self.h_position = h_position
+        self.distances = distances
 
     def plotting_function(self, i):
         # TODO introduce pyqtgraph
@@ -165,20 +178,16 @@ class VideoCreator:
         axr.arrow(self.b_position[i].x, self.b_position[i].y, arrow_length * np.cos(b_theta), arrow_length * np.sin(b_theta), head_width=0.05, head_length=0.1, fc='r', ec='r')
 
         # LEFT PLOT
-        # transform from head to world to drone then compute atan2
-
-        # p, q = jerome_method(self.b_position[i], self.b_orientation[i], self.h_position[i], self.h_orientation[i])
-        # horizontal_angle = math.degrees(math.atan2(p[1], p[0]))
-        # vertical_angle = math.degrees(math.atan2(p[2], p[0]))
 
         r_t_h = matrix_method(self.b_position[i], self.b_orientation[i], self.h_position[i], self.h_orientation[i])
         horizontal_angle = -math.degrees(math.atan2(r_t_h[1, 3], r_t_h[0, 3]))
-        vertical_angle = math.degrees(math.atan2(r_t_h[2, 3], r_t_h[0, 3]))
+        # vertical_angle = math.degrees(math.atan2(r_t_h[2, 3], r_t_h[0, 3]))
+
         value_angle_axis = 45
         axl.set_xbound(-value_angle_axis, value_angle_axis)
-        axl.set_ybound(-value_angle_axis, value_angle_axis)
-        axl.axis([-value_angle_axis, value_angle_axis, -value_angle_axis, value_angle_axis], 'equal')
-        axl.plot(horizontal_angle, vertical_angle, "go")
+        axl.set_ybound(0.1, 3)
+        axl.axis([-value_angle_axis, value_angle_axis, 0.1, 3], 'equal')
+        axl.plot(horizontal_angle, self.distances[i], "go")
 
         # Drawing the plot
         canvas.draw()
@@ -191,7 +200,14 @@ class VideoCreator:
         if horizontal_angle >= 0:
             cv2.arrowedLine(img, pt1, pt2, (0, 0, 255), 3)
         else:
-            cv2.arrowedLine(img, pt2, pt1, (0, 255, 0), 3)
+            cv2.arrowedLine(img, pt2, pt1, (0, 0, 255), 3)
+
+        pt3 = (25, 175)
+        pt4 = (25, 225)
+        if self.distances[i] < 1.437:
+            cv2.arrowedLine(img, pt3, pt4, (0, 255, 0), 3)
+        else:
+            cv2.arrowedLine(img, pt4, pt3, (0, 255, 0), 3)
 
         self.video_writer.write(img)
         plt.close(fig)
@@ -200,7 +216,7 @@ class VideoCreator:
         # max_ = bag_file_cut[self.f[:-4]]
         max_ = len(self.frame_list)
 
-        # for i in tqdm.tqdm(range(0, 100)):
+        # for i in tqdm.tqdm(range(100, 300)):
         # for i in tqdm.tqdm(range(300, 700)):
         for i in tqdm.tqdm(range(0, max_)):
             self.plotting_function(i)
@@ -370,7 +386,7 @@ def data_pre_processing(bag):
     for v in camera_np_array:
         hat_idx_nearest.append(find_nearest(hat_np_array, v))
     # some variable inits
-    distances = np.zeros((len(camera_np_array), 2))
+    distances = np.zeros((len(camera_np_array)))
     vect_structure = (len(camera_np_array), 3)
     hat_points = np.zeros(vect_structure)
     bebop_points = np.zeros(vect_structure)
@@ -392,23 +408,22 @@ def data_pre_processing(bag):
         bebop_points[i][1] = bebop_position.y
         bebop_points[i][2] = bebop_position.z
 
-        distances[i][0] = camera_np_array[i]
-        distances[i][1] = distance.pdist([hat_points[i], bebop_points[i]], 'euclidean')
+        distances[i] = distance.pdist([hat_points[i], bebop_points[i]], 'euclidean')
 
         h_sel_positions.append(head_position)
         b_sel_positions.append(bebop_position)
         h_sel_orientations.append(hat_orientation_list[hat_idx_nearest[i]])
         b_sel_orientations.append(bebop_orientation_list[bebop_idx_nearest[i]])
-    return b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions
+    return b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions, distances
 
 
 def bag_tovid(f):
     path = bag_file_path[f[:-4]]
     print("\nreading bag: " + str(f))
     bag = rosbag.Bag(path + f)
-    b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions = data_pre_processing(bag)
+    b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions, distance_list = data_pre_processing(bag)
 
-    vidcr = VideoCreator(b_orientation=b_sel_orientations, b_position=b_sel_positions, frame_list=frames_list, h_orientation=h_sel_orientations, h_position=h_sel_positions, f=f,
+    vidcr = VideoCreator(b_orientation=b_sel_orientations,distances=distance_list, b_position=b_sel_positions, frame_list=frames_list, h_orientation=h_sel_orientations, h_position=h_sel_positions, f=f,
                          title="./video/" + f[:-4] + ".avi")
     vidcr.video_plot_creator()
     print("\nvideo : " + str(f[:-4] + " completed"))
@@ -434,16 +449,45 @@ def main():
         # comporre files
         for f_ in files1:
             files.append(f_)
-        for f_ in files2:
-            files.append(f_)
+        # for f_ in files2:
+        #     files.append(f_)
 
-        pool = Pool(processes=6)
-        pool.map(bag_tovid, files)
+        pool = Pool(processes=4)
+        # pool.map(bag_tovid, files)
+        pool.map(bag_tovid, files[:2])
         pool.close()
         pool.join()
 
         py_voice("Video Creato!", l='it')
     else:
+        # compute distance mean
+        # train
+        path = "./bagfiles/train/"
+        files = [f for f in os.listdir(path) if f[-4:] == '.bag']
+        if not files:
+            print('No bag files found!')
+            return None
+        sum_dist = []
+        for f in files:
+            bag = rosbag.Bag(path + f)
+            _, _, _, _, _, distance_list = data_pre_processing(bag)
+            sum_dist.append(np.mean(distance_list))
+
+        # validation
+
+        path = "./bagfiles/validation/"
+        files = [f for f in os.listdir(path) if f[-4:] == '.bag']
+        if not files:
+            print('No bag files found!')
+            return None
+
+        for f in files:
+            bag = rosbag.Bag(path + f)
+            _, _, _, _, _, distance_list = data_pre_processing(bag)
+            sum_dist.append(np.mean(distance_list))
+
+        dist_mean = np.mean(sum_dist)  # 1.44
+        # create dataset
         # train
         datacr_train = DatasetCreator()
         path = "./bagfiles/train/"
@@ -454,8 +498,11 @@ def main():
 
         for f in files:
             bag = rosbag.Bag(path + f)
-            b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions = data_pre_processing(bag)
-            datacr_train.generate_data(b_orientation=b_sel_orientations, b_position=b_sel_positions, frame_list=frames_list, h_orientation=h_sel_orientations, h_position=h_sel_positions, f=f)
+            b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions, distance_list = data_pre_processing(bag)
+
+            datacr_train.generate_data(flag='dist', mean_dist=dist_mean, distances=distance_list, b_orientation=b_sel_orientations, b_position=b_sel_positions, frame_list=frames_list,
+                                       h_orientation=h_sel_orientations,
+                                       h_position=h_sel_positions, f=f)
         datacr_train.save_dataset(flag_train=True)
 
         # validation
@@ -468,8 +515,10 @@ def main():
 
         for f in files:
             bag = rosbag.Bag(path + f)
-            b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions = data_pre_processing(bag)
-            datacr_val.generate_data(b_orientation=b_sel_orientations, b_position=b_sel_positions, frame_list=frames_list, h_orientation=h_sel_orientations, h_position=h_sel_positions, f=f)
+            b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions, distance_list = data_pre_processing(bag)
+            datacr_val.generate_data(flag='dist', mean_dist=dist_mean, distances=distance_list, b_orientation=b_sel_orientations, b_position=b_sel_positions, frame_list=frames_list,
+                                     h_orientation=h_sel_orientations,
+                                     h_position=h_sel_positions, f=f)
         datacr_val.save_dataset(flag_train=False)
 
         py_voice("Dataset creato!", l='it')
