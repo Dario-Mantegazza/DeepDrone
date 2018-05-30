@@ -1,28 +1,23 @@
+# --------------------IMPORT-------------------
+import io
+import sys
+# !/usr/bin/env python
+import time
+from PIL import Image
 from subprocess import call
 
 import cv2
 import keras
 import numpy as np
-from gtts import gTTS
-from keras.models import Sequential
-# !/usr/bin/env python
 import rospy
-import sys
+import tensorflow as tf
+from gtts import gTTS
+from keras.backend import clear_session
+from keras.models import Sequential
+from numpy import array
+from sensor_msgs.msg import CompressedImage
 
-import numpy as np
-from geometry_msgs.msg import Pose, Twist, Point, Quaternion
-from nav_msgs.msg import Odometry
-from sensor_msgs.msg import Range
-from math import cos, sin, asin, tan, atan2, radians, atan, pow, atan2, sqrt
-# msgs and srv for working with the set_model_service
-from gazebo_msgs.msg import ModelState
-from gazebo_msgs.srv import SetModelState
-from std_srvs.srv import Empty
-# a handy tool to convert orientations
-from tf.transformations import euler_from_quaternion, quaternion_from_euler
-import tf
-# from rbx1_nav.transform_utils import quat_to_angle
-import PyKDL
+import threading
 
 distance_tolerance = 0.5
 tolerance = 0.001
@@ -68,57 +63,47 @@ class PID:
 
 
 class TrainedModel:
-    def __init__(self, publisher_name):
+    def __init__(self):
         self.model = Sequential()
         self.num_classes = 1
-        self.pub_name = publisher_name
+        self.pub_name = 'bebop'
+        self.hz = 30.0
+        rospy.init_node('magic_node', anonymous=True)
+        self.rate = rospy.Rate(self.hz)
+        self.PADCOLOR = [200, 200, 200]
 
     def setup(self):
+        clear_session()
+        del self.model  # deletes the existing model
         self.model = keras.models.load_model("./saved_models/keras_bebop_trained_model.h5")
-        # self.model = Sequential()
-        # self.model.add(Conv2D(2, (6, 6), padding='same', input_shape=(60, 107, 3)))
-        # self.model.add(Activation('relu'))
-        # self.model.add(MaxPooling2D(pool_size=(3, 3)))
-        # self.model.add(Conv2D(5, (6, 6), padding='same'))
-        # self.model.add(Activation('relu'))
-        # self.model.add(MaxPooling2D(pool_size=(2, 2)))
-        # self.model.add(Conv2D(10, (6, 6), padding='same'))
-        # self.model.add(Activation('relu'))
-        # self.model.add(MaxPooling2D(pool_size=(2, 2)))
-        # self.model.add(Flatten())
-        # self.model.add(Dense(64))
-        # self.model.add(Activation('relu'))
-        # # model.add(Dropout(0.5))
-        # self.model.add(Dense(16))
-        # self.model.add(Activation('relu'))
-        # # model.add(Dropout(0.5))
-        # self.model.add(Dense(self.num_classes))
-        # self.model.add(Activation('sigmoid'))
-        # # initiate RMSprop optimizer
-        # opt = keras.optimizers.rmsprop(lr=0.0001, decay=1e-6)
-        # # Let's train the model using RMSprop
-        # self.model.compile(loss='mean_squared_error',
-        #                    optimizer=opt,
-        #                    metrics=['accuracy'])
-        self.camera_feed = rospy.Subscriber('/bebop/image_raw/compressed', Range, self.check_transition) #cambiare tipo, cambiare funzione callback, testare
-        self.camera_feed = rospy.Subscriber(self.pub_name + '/image_raw/compressed', Range, self.check_transition)
+        opt = keras.optimizers.rmsprop(lr=0.0001, decay=1e-6)
+        self.model.compile(loss='mean_squared_error',
+                                              optimizer=opt,
+                                              metrics=['accuracy'])
+        self.model._make_predict_function()
+        self.graph = tf.get_default_graph()
+        self.camera_feed = rospy.Subscriber(self.pub_name + '/image_raw/compressed', CompressedImage, self.predict_)
 
-    # def check_transition(self, data):
-    #     self.prox_sensors_measure[data.header.frame_id] = data.range
-    #     if data.range < 0.06 and self.state == WALKING:
-    #         self.state = TURNING
-    #
-    def predict(self, x_test):
-        y_pred = self.model.predict(x_test)
-        self.showResult(x_test, y_pred)
+
+    def predict_(self, msg_data):
+        data = 1-array(Image.open(io.BytesIO(msg_data.data)))
+        scaled_fr = cv2.resize(data, (107, 60))
+        x_data = np.vstack(scaled_fr[:]).astype(np.float)
+        x_data = np.reshape(x_data, (-1, 60, 107, 3))
+        with self.graph.as_default():
+            y_pred = self.model.predict(x_data)
+        self.showResult(x_data[0], y_pred)
+        # self.showResult(data, y_pred)
 
     def showResult(self, frame, y):
-        img = (255 * frame).astype(np.uint8)
+        img = (255 * (frame)).astype(np.uint8)
+
         scaled = cv2.resize(img, (0, 0), fx=2, fy=2)
         vert_p = 180
         hor_p = 213
         im_pad = cv2.copyMakeBorder(scaled, vert_p, vert_p, hor_p, hor_p, cv2.BORDER_CONSTANT, value=self.PADCOLOR)
         im_final = cv2.cvtColor(im_pad, cv2.COLOR_RGB2BGR)
+        im_final = cv2.resize(im_final, (640, 480))
 
         pt1 = (275, 25)
         pt2 = (375, 25)
@@ -130,13 +115,21 @@ class TrainedModel:
         pt1_p = (x_p, 5)
         pt2_p = (x_p, 20)
         cv2.arrowedLine(im_final, pt1_p, pt2_p, (255, 0, 0), 3)
-        cv2.destroyAllWindows()
+        cv2.imshow("Display window", im_final)
+        cv2.waitKey(1)
 
+
+    def main_cycle(self):
+        while not rospy.is_shutdown():
+            self.rate.sleep()
 
 # -------------------Main area----------------------
 def main():
     cnn = TrainedModel()
     cnn.setup()
+    while not rospy.is_shutdown():
+        cnn.main_cycle()
+        sys.exit(0)
 
 
 if __name__ == "__main__":

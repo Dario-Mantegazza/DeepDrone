@@ -10,6 +10,7 @@ from gtts import gTTS
 from keras.layers import Conv2D, MaxPooling2D
 from keras.layers import Dense, Activation, Flatten
 from keras.models import Sequential
+from keras.backend import clear_session
 from sklearn.metrics import roc_auc_score
 
 
@@ -21,9 +22,9 @@ def py_voice(text_to_speak="Computing Completed", l='en'):
 
 def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_train, y_test, y_train):
     model = Sequential()
-    model.add(Conv2D(2, (6, 6), padding='same', input_shape=(60, 107, 3)))
+    model.add(Conv2D(2, (6, 6), padding='same', input_shape=(60, 107, 3), name="1_conv"))
     model.add(Activation('relu'))
-    model.add(MaxPooling2D(pool_size=(3, 3)))
+    model.add(MaxPooling2D(pool_size=(3, 3), name="1_pool"))
     model.add(Conv2D(5, (6, 6), padding='same'))
     model.add(Activation('relu'))
     model.add(MaxPooling2D(pool_size=(2, 2)))
@@ -59,17 +60,30 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
         os.makedirs(save_dir)
     model_path = os.path.join(save_dir, model_name)
     model.save(model_path)
+
+    w_save_dir = os.path.join(os.getcwd(), 'saved_weights')
+    w_name = 'keras_bebop_trained_weights.h5'
+    if not os.path.isdir(w_save_dir):
+        os.makedirs(w_save_dir)
+    w_path = os.path.join(w_save_dir, w_name)
+    model.save_weights(w_path)
+
     print('Saved trained model at %s ' % model_path)
+    print('Saved trained weights at %s ' % w_path)
+
+    clear_session()
+    del model  # deletes the existing model
+    model = keras.models.load_model("./saved_models/keras_bebop_trained_model.h5")
     # Score trained model.
     scores = model.evaluate(x_test, y_test, verbose=1)
     y_pred = model.predict(x_test)
     print('Test loss:', scores[0])
     print('Test accuracy:', scores[1])
     print('Test AUC:', roc_auc_score(y_test.tolist(), y_pred.tolist()))
-    py_voice("Rete treinata. Creazione video", l='it')
-    vidcr = KerasVideoCreator(x_test=x_test, labels=y_test, preds=y_pred, title="./video/CNNresults.avi")
-    vidcr.video_plot_creator()
-    py_voice("Video validescion creato", l='it')
+    # py_voice("Rete treinata. Creazione video", l='it')
+    # vidcr = KerasVideoCreator(x_test=x_test, labels=y_test, preds=y_pred, title="./video/CNNresults.avi")
+    # vidcr.video_plot_creator()
+    # py_voice("Video validescion creato", l='it')
 
 
 class KerasVideoCreator:
@@ -119,13 +133,20 @@ class KerasVideoCreator:
         self.video_writer.release()
         cv2.destroyAllWindows()
 
+def showResult(frame):
+    img = (255 * (frame)).astype(np.uint8)
+    # scaled = cv2.resize(img, (0, 0), fx=2, fy=2)
+    im_final = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+    # im_final = cv2.resize(im_final, (640, 480))
+    cv2.imshow("Display window", im_final)
+    cv2.waitKey(1)
 
 # -------------------Main area----------------------
 def main():
     train = pd.read_pickle("./dataset/train.pickle").values
     validation = pd.read_pickle("./dataset/validation.pickle").values
 
-    batch_size = 32
+    batch_size = 128
     num_classes = 1
     epochs = 5
     # data_augmentation = True
@@ -134,14 +155,15 @@ def main():
     model_name = 'keras_bebop_trained_model.h5'
 
     # The data, split between train and test sets:
-    x_train = train[:, 0]
+    x_train = 1-train[:, 0] #otherwise is inverted
     x_train = np.vstack(x_train[:]).astype(np.float)
     x_train = np.reshape(x_train, (-1, 60, 107, 3))
     y_train = train[:, 1]
 
-    x_test = validation[:, 0]
+    x_test = 1-validation[:, 0]
     x_test = np.vstack(x_test[:]).astype(np.float)
     x_test = np.reshape(x_test, (-1, 60, 107, 3))
+    # showResult(x_train[0])
     y_test = validation[:, 1]
     # (x_test, y_test) = validation
     print('x_train shape:', x_train.shape)

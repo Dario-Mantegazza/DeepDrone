@@ -142,6 +142,7 @@ class VideoCreator:
             frame.append(b)
         reshaped_fr = np.reshape(np.array(frame, dtype=np.int64), (480, 856, 3))
         reshaped_fr = reshaped_fr.astype(np.uint8)
+        # reshaped_fr = np.array(Image.open(io.BytesIO(self.frame_list[i])))
         axc.imshow(reshaped_fr)
         axc.set_axis_off()
 
