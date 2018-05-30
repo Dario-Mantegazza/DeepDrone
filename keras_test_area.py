@@ -127,7 +127,7 @@ def main():
 
     batch_size = 32
     num_classes = 1
-    epochs = 15
+    epochs = 5
     # data_augmentation = True
     num_predictions = 20
     save_dir = os.path.join(os.getcwd(), 'saved_models')
