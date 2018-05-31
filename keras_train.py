@@ -12,7 +12,7 @@ from keras.layers import Dense, Activation, Flatten
 from keras.models import Sequential
 from keras.backend import clear_session
 from sklearn.metrics import roc_auc_score
-
+from matplotlib import pyplot as plt
 
 def py_voice(text_to_speak="Computing Completed", l='en'):
     tts = gTTS(text=text_to_speak, lang=l)
@@ -50,11 +50,11 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
     x_test = x_test.astype('float32')
     x_train /= 255
     x_test /= 255
-    model.fit(x_train, y_train,
+    history = model.fit(x_train, y_train,
               batch_size=batch_size,
               epochs=epochs,
               validation_data=(x_test, y_test),
-              shuffle=True)
+              shuffle=False)
     # Save model and weights
     if not os.path.isdir(save_dir):
         os.makedirs(save_dir)
@@ -84,7 +84,22 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
     # vidcr = KerasVideoCreator(x_test=x_test, labels=y_test, preds=y_pred, title="./video/CNNresults.avi")
     # vidcr.video_plot_creator()
     # py_voice("Video validescion creato", l='it')
-
+    # summarize history for accuracy
+    plt.plot(history.history['acc'])
+    plt.plot(history.history['val_acc'])
+    plt.title('model accuracy')
+    plt.ylabel('accuracy')
+    plt.xlabel('epoch')
+    plt.legend(['train', 'test'], loc='upper left')
+    plt.show()
+    # summarize history for loss
+    plt.plot(history.history['loss'])
+    plt.plot(history.history['val_loss'])
+    plt.title('model loss')
+    plt.ylabel('loss')
+    plt.xlabel('epoch')
+    plt.legend(['train', 'test'], loc='upper left')
+    plt.show()
 
 class KerasVideoCreator:
     def __init__(self, x_test, labels, preds, title="Validation.avi"):
@@ -146,9 +161,9 @@ def main():
     train = pd.read_pickle("./dataset/train.pickle").values
     validation = pd.read_pickle("./dataset/validation.pickle").values
 
-    batch_size = 128
+    batch_size = 32
     num_classes = 1
-    epochs = 5
+    epochs = 32
     # data_augmentation = True
     num_predictions = 20
     save_dir = os.path.join(os.getcwd(), 'saved_models')
