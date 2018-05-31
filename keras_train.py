@@ -14,28 +14,25 @@ from keras.backend import clear_session
 from sklearn.metrics import roc_auc_score
 from matplotlib import pyplot as plt
 
-def py_voice(text_to_speak="Computing Completed", l='en'):
-    tts = gTTS(text=text_to_speak, lang=l)
-    tts.save('voice.mp3')
-    call(["cvlc", "voice.mp3", '--play-and-exit'])
+
 
 
 def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_train, y_test, y_train):
     model = Sequential()
-    model.add(Conv2D(2, (6, 6), padding='same', input_shape=(60, 107, 3), name="1_conv"))
+    model.add(Conv2D(5, (6, 6), padding='same', input_shape=(60, 107, 3), name="1_conv"))
     model.add(Activation('relu'))
     model.add(MaxPooling2D(pool_size=(3, 3), name="1_pool"))
-    model.add(Conv2D(5, (6, 6), padding='same'))
-    model.add(Activation('relu'))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
     model.add(Conv2D(10, (6, 6), padding='same'))
     model.add(Activation('relu'))
     model.add(MaxPooling2D(pool_size=(2, 2)))
+    model.add(Conv2D(15, (6, 6), padding='same'))
+    model.add(Activation('relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2)))
     model.add(Flatten())
-    model.add(Dense(64))
+    model.add(Dense(128))
     model.add(Activation('relu'))
     # model.add(Dropout(0.5))
-    model.add(Dense(16))
+    model.add(Dense(32))
     model.add(Activation('relu'))
     # model.add(Dropout(0.5))
     model.add(Dense(num_classes))
@@ -54,7 +51,7 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
               batch_size=batch_size,
               epochs=epochs,
               validation_data=(x_test, y_test),
-              shuffle=False)
+              shuffle=True)
     # Save model and weights
     if not os.path.isdir(save_dir):
         os.makedirs(save_dir)
@@ -80,10 +77,10 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
     print('Test loss:', scores[0])
     print('Test accuracy:', scores[1])
     print('Test AUC:', roc_auc_score(y_test.tolist(), y_pred.tolist()))
-    # py_voice("Rete treinata. Creazione video", l='it')
-    # vidcr = KerasVideoCreator(x_test=x_test, labels=y_test, preds=y_pred, title="./video/CNNresults.avi")
-    # vidcr.video_plot_creator()
-    # py_voice("Video validescion creato", l='it')
+
+    vidcr = KerasVideoCreator(x_test=x_test, labels=y_test, preds=y_pred, title="./video/CNNresults.avi")
+    vidcr.video_plot_creator()
+
     # summarize history for accuracy
     plt.plot(history.history['acc'])
     plt.plot(history.history['val_acc'])
@@ -101,6 +98,14 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
     plt.legend(['train', 'test'], loc='upper left')
     plt.show()
 
+    plt.plot(y_test)
+    plt.plot(y_pred)
+    plt.title('test-prediction')
+    plt.ylabel('value')
+    plt.xlabel('frame')
+    plt.legend(['test', 'pred'], loc='upper right')
+    plt.show()
+
 class KerasVideoCreator:
     def __init__(self, x_test, labels, preds, title="Validation.avi"):
         self.fps = 30
@@ -113,7 +118,7 @@ class KerasVideoCreator:
         self.PADCOLOR = [200, 200, 200]
 
     def plotting_function(self, i):
-        img = (255 * self.frame_list[i]).astype(np.uint8)
+        img = 1-(255 * self.frame_list[i]).astype(np.uint8)
         scaled = cv2.resize(img, (0, 0), fx=2, fy=2)
         vert_p = 180
         hor_p = 213
@@ -161,9 +166,10 @@ def main():
     train = pd.read_pickle("./dataset/train.pickle").values
     validation = pd.read_pickle("./dataset/validation.pickle").values
 
-    batch_size = 32
+    batch_size = 16
     num_classes = 1
-    epochs = 32
+    epochs = 10
+
     # data_augmentation = True
     num_predictions = 20
     save_dir = os.path.join(os.getcwd(), 'saved_models')

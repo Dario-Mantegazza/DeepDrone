@@ -2,7 +2,6 @@
 import io
 import sys
 # !/usr/bin/env python
-import time
 from PIL import Image
 from subprocess import call
 
@@ -16,8 +15,6 @@ from keras.backend import clear_session
 from keras.models import Sequential
 from numpy import array
 from sensor_msgs.msg import CompressedImage
-
-import threading
 
 distance_tolerance = 0.5
 tolerance = 0.001
