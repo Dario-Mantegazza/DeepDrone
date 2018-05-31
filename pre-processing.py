@@ -97,7 +97,7 @@ class DatasetCreator:
         scaled_fr = cv2.resize(reshaped_fr, (107, 60))
 
         if self.flag == 'dist':
-            label = self.distances[i] 
+            label = self.distances[i]
         elif self.flag == 'angle':
             r_t_h = matrix_method(self.b_position[i], self.b_orientation[i], self.h_position[i], self.h_orientation[i])
             horizontal_angle = -math.degrees(math.atan2(r_t_h[1, 3], r_t_h[0, 3]))

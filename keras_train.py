@@ -13,8 +13,7 @@ from keras.models import Sequential
 from keras.backend import clear_session
 from sklearn.metrics import roc_auc_score
 from matplotlib import pyplot as plt
-
-
+from sklearn import metrics
 
 
 def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_train, y_test, y_train):
@@ -36,22 +35,22 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
     model.add(Activation('relu'))
     # model.add(Dropout(0.5))
     model.add(Dense(num_classes))
-    model.add(Activation('sigmoid'))
+    model.add(Activation('linear'))
     # initiate RMSprop optimizer
     opt = keras.optimizers.rmsprop(lr=0.0001, decay=1e-6)
     # Let's train the model using RMSprop
-    model.compile(loss='mean_squared_error',
+    model.compile(loss='mean_absolute_error',
                   optimizer=opt,
-                  metrics=['accuracy'])
+                  metrics=['mse', 'mae', 'mape'])
     x_train = x_train.astype('float32')
     x_test = x_test.astype('float32')
     x_train /= 255
     x_test /= 255
     history = model.fit(x_train, y_train,
-              batch_size=batch_size,
-              epochs=epochs,
-              validation_data=(x_test, y_test),
-              shuffle=True)
+                        batch_size=batch_size,
+                        epochs=epochs,
+                        validation_data=(x_test, y_test),
+                        shuffle=True)
     # Save model and weights
     if not os.path.isdir(save_dir):
         os.makedirs(save_dir)
@@ -75,29 +74,50 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
     scores = model.evaluate(x_test, y_test, verbose=1)
     y_pred = model.predict(x_test)
     print('Test loss:', scores[0])
-    print('Test accuracy:', scores[1])
-    print('Test AUC:', roc_auc_score(y_test.tolist(), y_pred.tolist()))
+    print('Test mse:', scores[1])
+    print('Test mae:', scores[2])
+    print('Test mape:', scores[3])
+    # print('Test AUC:', roc_auc_score(y_test.tolist(), y_pred.tolist()))
+
+    mean_y = np.mean(y_test)
+    mean_array = np.full(y_test.shape, mean_y)
+    r2 = metrics.r2_score(y_test, mean_array)
+    mae = metrics.mean_absolute_error(y_test, mean_array)
+    print("----- mean value regressor metric -----")
+    print('Mean mae:', mae)
+    print('Mean r2:', r2)
+    # print('Mean AUC:', roc_auc_score(y_test.tolist(), mean_array.tolist()))
 
     vidcr = KerasVideoCreator(x_test=x_test, labels=y_test, preds=y_pred, title="./video/CNNresults.avi")
     vidcr.video_plot_creator()
-
-    # summarize history for accuracy
-    plt.plot(history.history['acc'])
-    plt.plot(history.history['val_acc'])
-    plt.title('model accuracy')
-    plt.ylabel('accuracy')
+    # print(history.history)
+    # summarize history for mse
+    plt.plot(history.history['mean_squared_error'])
+    plt.plot(history.history['val_mean_squared_error'])
+    plt.title('model MSE')
+    plt.ylabel('error')
     plt.xlabel('epoch')
-    plt.legend(['train', 'test'], loc='upper left')
+    plt.legend(['train', 'validation'], loc='upper right')
     plt.show()
+
+    plt.plot(history.history['mean_absolute_error'])
+    plt.plot(history.history['val_mean_absolute_error'])
+    plt.title('model MAE')
+    plt.ylabel('error')
+    plt.xlabel('epoch')
+    plt.legend(['train', 'validation'], loc='upper right')
+    plt.show()
+
     # summarize history for loss
     plt.plot(history.history['loss'])
     plt.plot(history.history['val_loss'])
     plt.title('model loss')
     plt.ylabel('loss')
     plt.xlabel('epoch')
-    plt.legend(['train', 'test'], loc='upper left')
+    plt.legend(['train', 'test'], loc='upper right')
     plt.show()
 
+    # plot thruth and prediction
     plt.plot(y_test)
     plt.plot(y_pred)
     plt.title('test-prediction')
@@ -105,6 +125,7 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
     plt.xlabel('frame')
     plt.legend(['test', 'pred'], loc='upper right')
     plt.show()
+
 
 class KerasVideoCreator:
     def __init__(self, x_test, labels, preds, title="Validation.avi"):
@@ -118,7 +139,7 @@ class KerasVideoCreator:
         self.PADCOLOR = [200, 200, 200]
 
     def plotting_function(self, i):
-        img = 1-(255 * self.frame_list[i]).astype(np.uint8)
+        img = 1 - (255 * self.frame_list[i]).astype(np.uint8)
         scaled = cv2.resize(img, (0, 0), fx=2, fy=2)
         vert_p = 180
         hor_p = 213
@@ -127,22 +148,26 @@ class KerasVideoCreator:
 
         pt1 = (275, 50)
         pt2 = (375, 50)
-        if self.labels[i] > 0:
+        # if self.labels[i] > 0:
+        if self.labels[i] < 1.437:
             cv2.arrowedLine(im_final, pt1, pt2, (0, 255, 0), 3)
         else:
             cv2.arrowedLine(im_final, pt2, pt1, (0, 255, 0), 3)
 
         pt1 = (275, 25)
         pt2 = (375, 25)
-        if self.preds[i] >= 0.5:
+        # if self.preds[i] >= 0.5: #angle
+        if self.preds[i] < 1.437:  # distance
             cv2.arrowedLine(im_final, pt1, pt2, (255, 0, 0), 3)
         else:
             cv2.arrowedLine(im_final, pt2, pt1, (255, 0, 0), 3)
 
-        x_p = 213 + int(214 * self.preds[i])
-        pt1_p = (x_p, 5)
-        pt2_p = (x_p, 20)
-        cv2.arrowedLine(im_final, pt1_p, pt2_p, (255, 0, 0), 3)
+        # TODO: redo this part
+
+        # x_p = 213 + int(214 * self.preds[i])
+        # pt1_p = (x_p, 5)
+        # pt2_p = (x_p, 20)
+        # cv2.arrowedLine(im_final, pt1_p, pt2_p, (255, 0, 0), 3)
 
         self.video_writer.write(im_final)
 
@@ -153,6 +178,7 @@ class KerasVideoCreator:
         self.video_writer.release()
         cv2.destroyAllWindows()
 
+
 def showResult(frame):
     img = (255 * (frame)).astype(np.uint8)
     # scaled = cv2.resize(img, (0, 0), fx=2, fy=2)
@@ -161,6 +187,7 @@ def showResult(frame):
     cv2.imshow("Display window", im_final)
     cv2.waitKey(1)
 
+
 # -------------------Main area----------------------
 def main():
     train = pd.read_pickle("./dataset/train.pickle").values
@@ -168,7 +195,7 @@ def main():
 
     batch_size = 16
     num_classes = 1
-    epochs = 10
+    epochs = 50
 
     # data_augmentation = True
     num_predictions = 20
@@ -176,12 +203,12 @@ def main():
     model_name = 'keras_bebop_trained_model.h5'
 
     # The data, split between train and test sets:
-    x_train = 1-train[:, 0] #otherwise is inverted
+    x_train = 1 - train[:, 0]  # otherwise is inverted
     x_train = np.vstack(x_train[:]).astype(np.float)
     x_train = np.reshape(x_train, (-1, 60, 107, 3))
     y_train = train[:, 1]
 
-    x_test = 1-validation[:, 0]
+    x_test = 1 - validation[:, 0]
     x_test = np.vstack(x_test[:]).astype(np.float)
     x_test = np.reshape(x_test, (-1, 60, 107, 3))
     # showResult(x_train[0])
