@@ -28,3 +28,5 @@ mirko\.py
 *.h5
 
 dataset/
+
+*.pickle

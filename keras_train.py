@@ -1,56 +1,57 @@
+import math
 import os
-from subprocess import call
+from matplotlib import pyplot as plt
 
 import cv2
 import keras
 import numpy as np
 import pandas as pd
 import tqdm as tqdm
-from gtts import gTTS
+from keras.backend import clear_session
 from keras.layers import Conv2D, MaxPooling2D
 from keras.layers import Dense, Activation, Flatten
 from keras.models import Sequential
-from keras.backend import clear_session
-from sklearn.metrics import roc_auc_score
-from matplotlib import pyplot as plt
 from sklearn import metrics
 
 
+# Cnn method contains the definition, training, testing and plotting of the CNN model and dataset
 def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_train, y_test, y_train):
     model = Sequential()
-    model.add(Conv2D(5, (6, 6), padding='same', input_shape=(60, 107, 3), name="1_conv"))
+    model.add(Conv2D(10, (6, 6), padding='same', input_shape=(60, 107, 3), name="1_conv"))
     model.add(Activation('relu'))
     model.add(MaxPooling2D(pool_size=(3, 3), name="1_pool"))
-    model.add(Conv2D(10, (6, 6), padding='same'))
-    model.add(Activation('relu'))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
     model.add(Conv2D(15, (6, 6), padding='same'))
     model.add(Activation('relu'))
     model.add(MaxPooling2D(pool_size=(2, 2)))
+    model.add(Conv2D(20, (6, 6), padding='same'))
+    model.add(Activation('relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2)))
     model.add(Flatten())
-    model.add(Dense(128))
+    model.add(Dense(256))
     model.add(Activation('relu'))
-    # model.add(Dropout(0.5))
-    model.add(Dense(32))
+    model.add(Dense(64))
     model.add(Activation('relu'))
-    # model.add(Dropout(0.5))
     model.add(Dense(num_classes))
     model.add(Activation('linear'))
-    # initiate RMSprop optimizer
-    opt = keras.optimizers.rmsprop(lr=0.0001, decay=1e-6)
-    # Let's train the model using RMSprop
+
+    opt = keras.optimizers.rmsprop(lr=0.001, decay=1e-6)
+
     model.compile(loss='mean_absolute_error',
                   optimizer=opt,
-                  metrics=['mse', 'mae', 'mape'])
+                  metrics=['mse'])
     x_train = x_train.astype('float32')
     x_test = x_test.astype('float32')
+
+    # data is normalized
     x_train /= 255
     x_test /= 255
+
     history = model.fit(x_train, y_train,
                         batch_size=batch_size,
                         epochs=epochs,
                         validation_data=(x_test, y_test),
                         shuffle=True)
+
     # Save model and weights
     if not os.path.isdir(save_dir):
         os.makedirs(save_dir)
@@ -66,67 +67,85 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
 
     print('Saved trained model at %s ' % model_path)
     print('Saved trained weights at %s ' % w_path)
+    #
+    #
+    # clear_session()
+    # del model  # deletes the existing model
+    # model = keras.models.load_model("./saved_models/keras_bebop_trained_model.h5")
 
-    clear_session()
-    del model  # deletes the existing model
-    model = keras.models.load_model("./saved_models/keras_bebop_trained_model.h5")
     # Score trained model.
     scores = model.evaluate(x_test, y_test, verbose=1)
     y_pred = model.predict(x_test)
     print('Test loss:', scores[0])
     print('Test mse:', scores[1])
-    print('Test mae:', scores[2])
-    print('Test mape:', scores[3])
-    # print('Test AUC:', roc_auc_score(y_test.tolist(), y_pred.tolist()))
+
+    r2 = metrics.r2_score(y_test, y_pred)
+    print('Test r2:', r2)
 
     mean_y = np.mean(y_test)
     mean_array = np.full(y_test.shape, mean_y)
-    r2 = metrics.r2_score(y_test, mean_array)
     mae = metrics.mean_absolute_error(y_test, mean_array)
     print("----- mean value regressor metric -----")
     print('Mean mae:', mae)
-    print('Mean r2:', r2)
-    # print('Mean AUC:', roc_auc_score(y_test.tolist(), mean_array.tolist()))
 
-    vidcr = KerasVideoCreator(x_test=x_test, labels=y_test, preds=y_pred, title="./video/CNNresults.avi")
-    vidcr.video_plot_creator()
-    # print(history.history)
-    # summarize history for mse
+    # here the video are composed
+    # y_train_pred = model.predict(x_train)
+    #
+    # vidcr_train = KerasVideoCreator(x_test=x_train, labels=y_train, preds=y_train_pred, title="./video/train_result.avi")
+    # vidcr_train.video_plot_creator()
+
+    vidcr_test = KerasVideoCreator(x_test=x_test, labels=y_test, preds=y_pred, title="./video/test_result.avi")
+    vidcr_test.video_plot_creator()
+
+    # show some plots
+    plt.figure()
     plt.plot(history.history['mean_squared_error'])
     plt.plot(history.history['val_mean_squared_error'])
     plt.title('model MSE')
-    plt.ylabel('error')
     plt.xlabel('epoch')
-    plt.legend(['train', 'validation'], loc='upper right')
-    plt.show()
-
-    plt.plot(history.history['mean_absolute_error'])
-    plt.plot(history.history['val_mean_absolute_error'])
-    plt.title('model MAE')
     plt.ylabel('error')
-    plt.xlabel('epoch')
     plt.legend(['train', 'validation'], loc='upper right')
-    plt.show()
 
-    # summarize history for loss
+    plt.figure()
     plt.plot(history.history['loss'])
     plt.plot(history.history['val_loss'])
     plt.title('model loss')
-    plt.ylabel('loss')
     plt.xlabel('epoch')
+    plt.ylabel('loss')
     plt.legend(['train', 'test'], loc='upper right')
-    plt.show()
 
-    # plot thruth and prediction
-    plt.plot(y_test)
-    plt.plot(y_pred)
-    plt.title('test-prediction')
-    plt.ylabel('value')
+    plt.figure()
+    plt.plot(y_test[:, 1])
+    plt.plot(y_pred[:, 1])
+    plt.title('test-prediction angle')
     plt.xlabel('frame')
+    plt.ylabel('value')
     plt.legend(['test', 'pred'], loc='upper right')
+
+    plt.figure()
+    plt.plot(y_test[:, 0])
+    plt.plot(y_pred[:, 0])
+    plt.title('test-prediction distance')
+    plt.xlabel('frame')
+    plt.ylabel('value')
+    plt.legend(['test', 'pred'], loc='upper right')
+
+    plt.figure()
+    plt.scatter(y_test[:, 1], y_pred[:, 1])
+    plt.title('scatter-plot angle')
+    plt.xlabel('thruth')
+    plt.ylabel('pred')
+
+    plt.figure()
+    plt.scatter(y_test[:, 0], y_pred[:, 0])
+    plt.title('scatter-plot distance')
+    plt.ylabel('pred')
+    plt.xlabel('thruth')
+
     plt.show()
 
 
+# class that is used to create video
 class KerasVideoCreator:
     def __init__(self, x_test, labels, preds, title="Validation.avi"):
         self.fps = 30
@@ -138,7 +157,9 @@ class KerasVideoCreator:
         self.preds = preds
         self.PADCOLOR = [200, 200, 200]
 
-    def plotting_function(self, i):
+    # function used to compose the frame
+    def frame_composer(self, i):
+        # Adjusting the image
         img = 1 - (255 * self.frame_list[i]).astype(np.uint8)
         scaled = cv2.resize(img, (0, 0), fx=2, fy=2)
         vert_p = 180
@@ -146,41 +167,36 @@ class KerasVideoCreator:
         im_pad = cv2.copyMakeBorder(scaled, vert_p, vert_p, hor_p, hor_p, cv2.BORDER_CONSTANT, value=self.PADCOLOR)
         im_final = cv2.cvtColor(im_pad, cv2.COLOR_RGB2BGR)
 
-        pt1 = (275, 50)
-        pt2 = (375, 50)
-        # if self.labels[i] > 0:
-        if self.labels[i] < 1.437:
-            cv2.arrowedLine(im_final, pt1, pt2, (0, 255, 0), 3)
-        else:
-            cv2.arrowedLine(im_final, pt2, pt1, (0, 255, 0), 3)
+        # creating the graphics for showing the results
+        drone_center = (50, 150)
+        cv2.circle(im_final, center=drone_center, radius=2, color=(0, 0, 0), thickness=3)
+        y_d = self.preds[i]
+        l_d = self.labels[i]
+        arrow_l = 40
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        angle_deg = y_d[1]
+        angle_rad = math.radians(angle_deg - 90.0)
+        scale_arrow = 50
 
-        pt1 = (275, 25)
-        pt2 = (375, 25)
-        # if self.preds[i] >= 0.5: #angle
-        if self.preds[i] < 1.437:  # distance
-            cv2.arrowedLine(im_final, pt1, pt2, (255, 0, 0), 3)
-        else:
-            cv2.arrowedLine(im_final, pt2, pt1, (255, 0, 0), 3)
-
-        # TODO: redo this part
-
-        # x_p = 213 + int(214 * self.preds[i])
-        # pt1_p = (x_p, 5)
-        # pt2_p = (x_p, 20)
-        # cv2.arrowedLine(im_final, pt1_p, pt2_p, (255, 0, 0), 3)
-
+        cv2.arrowedLine(im_final, drone_center, (int(50 + arrow_l * np.cos(angle_rad)), int(150 + arrow_l * np.sin(angle_rad))), (0, 0, 255), 2)
+        cv2.arrowedLine(im_final, drone_center, (50, int(150 + scale_arrow * (1.437 - y_d[0]))), (0, 255, 0), 2)
+        cv2.putText(im_final, "angle_t: " + str(l_d[1]), (30, 70), font, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
+        cv2.putText(im_final, "angle_pr: " + str(angle_deg), (30, 90), font, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
+        cv2.putText(im_final, "dist_t: " + str(l_d[0]), (30, 30), font, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
+        cv2.putText(im_final, "dist_pr: " + str(y_d[0]), (30, 50), font, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
         self.video_writer.write(im_final)
 
     def video_plot_creator(self):
         max_ = len(self.frame_list)
         for i in tqdm.tqdm(range(0, max_)):
-            self.plotting_function(i)
+            self.frame_composer(i)
         self.video_writer.release()
         cv2.destroyAllWindows()
 
 
+# method not used, useful to have a peek at the images anywhere in the code
 def showResult(frame):
-    img = (255 * (frame)).astype(np.uint8)
+    img = (255 * frame).astype(np.uint8)
     # scaled = cv2.resize(img, (0, 0), fx=2, fy=2)
     im_final = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
     # im_final = cv2.resize(im_final, (640, 480))
@@ -188,17 +204,15 @@ def showResult(frame):
     cv2.waitKey(1)
 
 
-# -------------------Main area----------------------
+# ------------------- Main ----------------------
 def main():
     train = pd.read_pickle("./dataset/train.pickle").values
     validation = pd.read_pickle("./dataset/validation.pickle").values
 
-    batch_size = 16
-    num_classes = 1
-    epochs = 50
+    batch_size = 64
+    num_classes = 2
+    epochs = 100
 
-    # data_augmentation = True
-    num_predictions = 20
     save_dir = os.path.join(os.getcwd(), 'saved_models')
     model_name = 'keras_bebop_trained_model.h5'
 
@@ -207,18 +221,17 @@ def main():
     x_train = np.vstack(x_train[:]).astype(np.float)
     x_train = np.reshape(x_train, (-1, 60, 107, 3))
     y_train = train[:, 1]
+    y_train = np.asarray([np.asarray(sublist) for sublist in y_train])
 
     x_test = 1 - validation[:, 0]
     x_test = np.vstack(x_test[:]).astype(np.float)
     x_test = np.reshape(x_test, (-1, 60, 107, 3))
-    # showResult(x_train[0])
     y_test = validation[:, 1]
-    # (x_test, y_test) = validation
+    y_test = np.asarray([np.asarray(sublist) for sublist in y_test])
+
     print('x_train shape:', x_train.shape)
     print(x_train.shape[0], 'train samples')
     print(x_test.shape[0], 'test samples')
-
-    # print("asd: ", sum(y_test)/len(y_test))
 
     CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_train, y_test, y_train)
 

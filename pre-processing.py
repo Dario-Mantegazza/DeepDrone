@@ -1,27 +1,24 @@
-# --------------------IMPORT-------------------
+# ------ Import ------
 import io
 import math
-import numpy as np
 import os
 import random
 from PIL import Image
 from matplotlib import pyplot as plt
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.ticker import MultipleLocator
-from subprocess import call
 from multiprocessing import Pool
+
 import cv2
+import numpy as np
 import pandas as pd
 import rosbag
 import tf
 import tqdm as tqdm
-from gtts import gTTS
 from scipy.spatial import distance
-from tf.transformations import (quaternion_conjugate, quaternion_multiply)
 from transforms3d.derivations.quaternions import quat2mat
 
-# ----------FUNCTIONS DEFINITIONS---------------
-# region class video
+# ------ Global Dictionaries ------
 
 bag_end_cut = {
     "1": 3150,
@@ -64,12 +61,15 @@ bag_file_path = {
 }
 
 
+# ------ Classes ------
+
+# This class handles the dataset creation.
 class DatasetCreator:
     def __init__(self):
         self.dataset = []
         pass
 
-    # noinspection PyAttributeOutsideInit
+    # Main method of the class, cycles through different nparrays and call other methods to compose the dataset.
     def generate_data(self, flag, mean_dist, distances, b_orientation, b_position, frame_list, h_orientation, h_position, f):
         self.b_orientation = b_orientation
         self.b_position = b_position
@@ -82,9 +82,9 @@ class DatasetCreator:
         max_ = bag_end_cut[f[:-4]]
         min_ = bag_start_cut[f[:-4]]
         for i in tqdm.tqdm(range(min_, max_)):
-            # for i in tqdm.tqdm(range(0, 10)):
             self.data_aggregator(i)
 
+    # append a frame with labels into the dataset file. Using a flag it is possible to select the labels to associate with the camera frame
     def data_aggregator(self, i):
         img = Image.open(io.BytesIO(self.frame_list[i]))
         raw_frame = list(img.getdata())
@@ -96,21 +96,22 @@ class DatasetCreator:
 
         scaled_fr = cv2.resize(reshaped_fr, (107, 60))
 
-        if self.flag == 'dist':
-            label = self.distances[i]
+        if self.flag == 'both':
+            r_t_h = matrix_method(self.b_position[i], self.b_orientation[i], self.h_position[i], self.h_orientation[i])
+            horizontal_angle = -math.degrees(math.atan2(r_t_h[1, 3], r_t_h[0, 3]))
+            label = (self.distances[i], horizontal_angle)
+
         elif self.flag == 'angle':
             r_t_h = matrix_method(self.b_position[i], self.b_orientation[i], self.h_position[i], self.h_orientation[i])
             horizontal_angle = -math.degrees(math.atan2(r_t_h[1, 3], r_t_h[0, 3]))
-            # vertical_angle = math.degrees(math.atan2(r_t_h[2, 3], r_t_h[0, 3]))
             label = int(horizontal_angle >= 0)
+
         else:  # should be both
-            r_t_h = matrix_method(self.b_position[i], self.b_orientation[i], self.h_position[i], self.h_orientation[i])
-            horizontal_angle = -math.degrees(math.atan2(r_t_h[1, 3], r_t_h[0, 3]))
-            # vertical_angle = math.degrees(math.atan2(r_t_h[2, 3], r_t_h[0, 3]))
-            label = int(horizontal_angle >= 0)
+            label = self.distances[i]
 
         self.dataset.append((scaled_fr, label))
 
+    # saves the dataset pickle file.
     def save_dataset(self, flag_train):
         random.seed(42)
         # save
@@ -126,6 +127,7 @@ class DatasetCreator:
             val.to_pickle("./dataset/validation.pickle")
 
 
+# Class used for creating video to analyze new data from bag files.
 class VideoCreator:
     def __init__(self, b_orientation, distances, b_position, frame_list, h_orientation, h_position, f, title="test.avi"):
         self.fps = 30
@@ -138,8 +140,8 @@ class VideoCreator:
         self.h_position = h_position
         self.distances = distances
 
+    # given an index compose the frame for the video. Each frame has two graphs and the camera frame associated.
     def plotting_function(self, i):
-        # TODO introduce pyqtgraph
         fig = plt.figure()
         axl = fig.add_subplot(1, 3, 1)
         axc = fig.add_subplot(1, 3, 2)
@@ -147,7 +149,7 @@ class VideoCreator:
         canvas = FigureCanvas(fig)
         plt.title("Frame: " + str(i))
 
-        # Central IMAGE
+        # Central image: here we add the camera feed to the video
         img = Image.open(io.BytesIO(self.frame_list[i]))
         raw_frame = list(img.getdata())
         frame = []
@@ -155,12 +157,10 @@ class VideoCreator:
             frame.append(b)
         reshaped_fr = np.reshape(np.array(frame, dtype=np.int64), (480, 856, 3))
         reshaped_fr = reshaped_fr.astype(np.uint8)
-        # reshaped_fr = np.array(Image.open(io.BytesIO(self.frame_list[i])))
         axc.imshow(reshaped_fr)
         axc.set_axis_off()
 
-        # RIGHT PLOT
-
+        # RIGHT PLOT: here we create the right plot that represent the position and heading of the bebop and head
         axr.axis([-2.4, 2.4, -2.4, 2.4], 'equals')
         h_theta = quat_to_eul(self.h_orientation[i])[2]
         b_theta = quat_to_eul(self.b_orientation[i])[2]
@@ -177,8 +177,7 @@ class VideoCreator:
         axr.arrow(self.h_position[i].x, self.h_position[i].y, arrow_length * np.cos(h_theta), arrow_length * np.sin(h_theta), head_width=0.05, head_length=0.1, fc='g', ec='g')
         axr.arrow(self.b_position[i].x, self.b_position[i].y, arrow_length * np.cos(b_theta), arrow_length * np.sin(b_theta), head_width=0.05, head_length=0.1, fc='r', ec='r')
 
-        # LEFT PLOT
-
+        # LEFT PLOT: here we represent the distance on the y axis and the heading correction for the drone in degrees on the x-axis
         r_t_h = matrix_method(self.b_position[i], self.b_orientation[i], self.h_position[i], self.h_orientation[i])
         horizontal_angle = -math.degrees(math.atan2(r_t_h[1, 3], r_t_h[0, 3]))
         # vertical_angle = math.degrees(math.atan2(r_t_h[2, 3], r_t_h[0, 3]))
@@ -192,6 +191,7 @@ class VideoCreator:
         # Drawing the plot
         canvas.draw()
 
+        # some additional informations as arrows
         width, height = (fig.get_size_inches() * fig.get_dpi()).astype(dtype='int32')
         img = np.fromstring(canvas.tostring_rgb(), dtype='uint8').reshape(height, width, 3)
         img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
@@ -212,32 +212,18 @@ class VideoCreator:
         self.video_writer.write(img)
         plt.close(fig)
 
+    # composing the video
     def video_plot_creator(self):
-        # max_ = bag_file_cut[self.f[:-4]]
         max_ = len(self.frame_list)
-
-        # for i in tqdm.tqdm(range(100, 300)):
-        # for i in tqdm.tqdm(range(300, 700)):
         for i in tqdm.tqdm(range(0, max_)):
             self.plotting_function(i)
         self.video_writer.release()
         cv2.destroyAllWindows()
 
 
-# def jerome_method(p_b, q_b, p_h, q_h):  # relative pose of h wrt b
-#     np_q_b = quat_to_array(q_b)
-#     np_p_b = np.array([p_b.x, p_b.y, p_b.z])
-#
-#     np_q_h = quat_to_array(q_h)
-#     np_p_h = np.array([p_h.x, p_h.y, p_h.z])
-#
-#     cq_b = quaternion_conjugate(np_q_b)
-#     p = np.concatenate([np_p_h - np_p_b, [0]])
-#     p = quaternion_multiply(np_q_b, quaternion_multiply(p, cq_b))[:3]
-#     q = quaternion_multiply(cq_b, np_q_h)
-#     return p, q
+# ----------FUNCTIONS DEFINITIONS---------------
 
-
+# function that convert rospose to homogeneus matrix
 def rospose2homogmat(p, q):
     w_r_o = np.array(quat2mat(quat_to_array(q))).astype(np.float64)  # rotation matrix of object wrt world frame
     np_pose = np.array([[p.x], [p.y], [p.z]])
@@ -246,6 +232,7 @@ def rospose2homogmat(p, q):
     return w_r_o
 
 
+# method that compute the change of frame of reference of the head wrt world to head wrt bebop
 def matrix_method(p_b, q_b, p_h, q_h):
     w_t_b = rospose2homogmat(p_b, q_b)
     w_t_h = rospose2homogmat(p_h, q_h)
@@ -254,29 +241,12 @@ def matrix_method(p_b, q_b, p_h, q_h):
     return b_t_h
 
 
-# endregion
-
-# region altro
-# Conversions
+# method to convert time
 def time_conversion_to_nano(sec, nano):
     return (sec * 1000 * 1000 * 1000) + nano
 
 
-def pil_to_pyplot(fr_list):
-    reshaped_list = []
-    for i in range(0, len(fr_list)):
-        print("im: ", i)
-        img = Image.open(io.BytesIO(fr_list[i]))
-        raw_frame = list(img.getdata())
-        frame = []
-        for b in raw_frame:
-            frame.append(b)
-
-        reshaped_list.append(np.reshape(np.array(frame, dtype=np.int64), (480, 856, 3)))
-
-    return reshaped_list
-
-
+# method to convert quaternion orientation to euler orientation
 def quat_to_eul(orientation):
     quaternion = (
         orientation.x,
@@ -287,19 +257,16 @@ def quat_to_eul(orientation):
     return euler
 
 
-# tools
+# find nearest value in array
 def find_nearest(array, value):
     return (np.abs(array - value)).argmin()
 
 
-# export ROS_MASTER_URI=http://192.168.201.4:11311
-
+# given a bagfile, this function extracts the info from three topics
 def get_bag_data(bag_file):
     hat_positions = []
     hat_orientaions = []
     hat_times = []
-    # if canTransform('/bebop/odom', source_frame, time):
-    #     print "yay"
     for topic, hat, t in bag_file.read_messages(topics=['/optitrack/head']):
         secs = t.secs
         nsecs = t.nsecs
@@ -327,10 +294,10 @@ def get_bag_data(bag_file):
         camera_times.append(time_conversion_to_nano(secs, nsecs))
 
     bag_file.close()
-    # bag_topics = bag_file.get_type_and_topic_info()[1].keys()
     return camera_times, frames, bebop_times, bebop_positions, hat_times, hat_positions, hat_orientaions, bebop_orientaions
 
 
+# method used in the past
 def get_distant_frame(dists, camera_times, frames, num=5):
     sorted_distances = dists[dists[:, 1].argsort()]
     frames_selected = []
@@ -339,6 +306,7 @@ def get_distant_frame(dists, camera_times, frames, num=5):
     return frames_selected, sorted_distances[-num:]
 
 
+# method used in the past
 def get_near_frame(dists, camera_times, frames, num=5):
     sorted_distances = dists[dists[:, 1].argsort()]
     frames_selected = []
@@ -347,21 +315,7 @@ def get_near_frame(dists, camera_times, frames, num=5):
     return frames_selected, sorted_distances[0:num]
 
 
-def plot_times(b_times, h_times, c_times):
-    x1 = np.full((len(b_times)), 1)
-    x2 = np.full((len(h_times)), 2)
-    x3 = np.full((len(c_times)), 3)
-    plt.plot(b_times, x1, "r.", h_times, x2, "g.", c_times, x3, "b.", markersize=1)
-    plt.show()
-
-
-def py_voice(text_to_speak="Computing Completed", l='en'):
-    tts = gTTS(text=text_to_speak, lang=l)
-    tts.save('voice.mp3')
-    # os.system('/voice.mp3')
-    call(["cvlc", "voice.mp3", '--play-and-exit'])
-
-
+# transform a quaternion into array form
 def quat_to_array(q):
     ret = np.zeros((4))
     ret[0] = q.w
@@ -371,20 +325,26 @@ def quat_to_array(q):
     return ret
 
 
+# method where most of the data is pre processed.
 def data_pre_processing(bag):
+    # get data from bag file
     camera_time_list, frames_list, bebop_time_list, bebop_position_list, hat_time_list, hat_position_list, hat_orientation_list, bebop_orientation_list = get_bag_data(bag)
+
     # reformat some data as np array for future use
     camera_np_array = np.asarray(camera_time_list)
     bebop_np_array = np.asarray(bebop_time_list)
     hat_np_array = np.asarray(hat_time_list)
+
     # identify the nearest time frames of the bebop with respect of the camera data
     bebop_idx_nearest = []
     for v in camera_np_array:
         bebop_idx_nearest.append(find_nearest(bebop_np_array, v))
+
     # identify the nearest time frames of the hat with respect of the camera data
     hat_idx_nearest = []
     for v in camera_np_array:
         hat_idx_nearest.append(find_nearest(hat_np_array, v))
+
     # some variable inits
     distances = np.zeros((len(camera_np_array)))
     vect_structure = (len(camera_np_array), 3)
@@ -394,7 +354,8 @@ def data_pre_processing(bag):
     b_sel_positions = []
     h_sel_orientations = []
     b_sel_orientations = []
-    # computing the distances array/matrix
+
+    # syncing data and computing the distances array
     for i in range(0, len(camera_np_array)):
         head_position = hat_position_list[hat_idx_nearest[i]]
 
@@ -408,7 +369,7 @@ def data_pre_processing(bag):
         bebop_points[i][1] = bebop_position.y
         bebop_points[i][2] = bebop_position.z
 
-        distances[i] = distance.pdist([hat_points[i], bebop_points[i]], 'euclidean')
+        distances[i] = distance.pdist([hat_points[i], bebop_points[i]], 'euclidean')  # not 3d must be only 2d
 
         h_sel_positions.append(head_position)
         b_sel_positions.append(bebop_position)
@@ -417,22 +378,30 @@ def data_pre_processing(bag):
     return b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions, distances
 
 
-def bag_tovid(f):
+# method used for creating video for each bag file
+def bag_to_vid(f):
     path = bag_file_path[f[:-4]]
     print("\nreading bag: " + str(f))
     bag = rosbag.Bag(path + f)
     b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions, distance_list = data_pre_processing(bag)
-
-    vidcr = VideoCreator(b_orientation=b_sel_orientations,distances=distance_list, b_position=b_sel_positions, frame_list=frames_list, h_orientation=h_sel_orientations, h_position=h_sel_positions, f=f,
+    vidcr = VideoCreator(b_orientation=b_sel_orientations,
+                         distances=distance_list,
+                         b_position=b_sel_positions,
+                         frame_list=frames_list,
+                         h_orientation=h_sel_orientations,
+                         h_position=h_sel_positions,
+                         f=f,
                          title="./video/" + f[:-4] + ".avi")
     vidcr.video_plot_creator()
     print("\nvideo : " + str(f[:-4] + " completed"))
 
 
-# endregion
-# -------------------Main area----------------------
+# ------ Main ------
 def main():
-    scelta = raw_input("Video o dataset:[v/d]")
+    # Main selection
+    scelta = raw_input("Video or dataset:[v/d]")
+
+    # if video is selected, then bag_to_vid is mapped to a pool of processes to parallelize the computation. (Fast as the slowest ~ 1h)
     if scelta == "v":
         path1 = "./bagfiles/train/"
         path2 = "./bagfiles/validation/"
@@ -446,48 +415,49 @@ def main():
             print('No bag files found!')
             return None
         files = []
-        # comporre files
         for f_ in files1:
             files.append(f_)
-        # for f_ in files2:
-        #     files.append(f_)
+        for f_ in files2:
+            files.append(f_)
 
         pool = Pool(processes=4)
-        # pool.map(bag_tovid, files)
-        pool.map(bag_tovid, files[:2])
+        pool.map(bag_to_vid, files[:2])
         pool.close()
         pool.join()
 
-        py_voice("Video Creato!", l='it')
     else:
-        # compute distance mean
-        # train
-        path = "./bagfiles/train/"
-        files = [f for f in os.listdir(path) if f[-4:] == '.bag']
-        if not files:
-            print('No bag files found!')
-            return None
-        sum_dist = []
-        for f in files:
-            bag = rosbag.Bag(path + f)
-            _, _, _, _, _, distance_list = data_pre_processing(bag)
-            sum_dist.append(np.mean(distance_list))
+        # # compute dataset mean distance -- not used because the value now is hard coded
+        # # train
+        # path = "./bagfiles/train/"
+        # files = [f for f in os.listdir(path) if f[-4:] == '.bag']
+        # if not files:
+        #     print('No bag files found!')
+        #     return None
+        # sum_dist = []
+        # for f in files:
+        #     bag = rosbag.Bag(path + f)
+        #     _, _, _, _, _, distance_list = data_pre_processing(bag)
+        #     sum_dist.append(np.mean(distance_list))
+        #
+        # # validation
+        #
+        # path = "./bagfiles/validation/"
+        # files = [f for f in os.listdir(path) if f[-4:] == '.bag']
+        # if not files:
+        #     print('No bag files found!')
+        #     return None
+        #
+        # for f in files:
+        #     bag = rosbag.Bag(path + f)
+        #     _, _, _, _, _, distance_list = data_pre_processing(bag)
+        #     sum_dist.append(np.mean(distance_list))
+        #
+        # dist_mean = np.mean(sum_dist)  # 1.437
 
-        # validation
+        dist_mean = 1.437
 
-        path = "./bagfiles/validation/"
-        files = [f for f in os.listdir(path) if f[-4:] == '.bag']
-        if not files:
-            print('No bag files found!')
-            return None
+        # create dataset, not parallelized.
 
-        for f in files:
-            bag = rosbag.Bag(path + f)
-            _, _, _, _, _, distance_list = data_pre_processing(bag)
-            sum_dist.append(np.mean(distance_list))
-
-        dist_mean = np.mean(sum_dist)  # 1.44
-        # create dataset
         # train
         datacr_train = DatasetCreator()
         path = "./bagfiles/train/"
@@ -500,7 +470,7 @@ def main():
             bag = rosbag.Bag(path + f)
             b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions, distance_list = data_pre_processing(bag)
 
-            datacr_train.generate_data(flag='dist', mean_dist=dist_mean, distances=distance_list, b_orientation=b_sel_orientations, b_position=b_sel_positions, frame_list=frames_list,
+            datacr_train.generate_data(flag='both', mean_dist=dist_mean, distances=distance_list, b_orientation=b_sel_orientations, b_position=b_sel_positions, frame_list=frames_list,
                                        h_orientation=h_sel_orientations,
                                        h_position=h_sel_positions, f=f)
         datacr_train.save_dataset(flag_train=True)
@@ -516,12 +486,10 @@ def main():
         for f in files:
             bag = rosbag.Bag(path + f)
             b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions, distance_list = data_pre_processing(bag)
-            datacr_val.generate_data(flag='dist', mean_dist=dist_mean, distances=distance_list, b_orientation=b_sel_orientations, b_position=b_sel_positions, frame_list=frames_list,
+            datacr_val.generate_data(flag='both', mean_dist=dist_mean, distances=distance_list, b_orientation=b_sel_orientations, b_position=b_sel_positions, frame_list=frames_list,
                                      h_orientation=h_sel_orientations,
                                      h_position=h_sel_positions, f=f)
         datacr_val.save_dataset(flag_train=False)
-
-        py_voice("Dataset creato!", l='it')
 
 
 if __name__ == "__main__":
