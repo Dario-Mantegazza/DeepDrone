@@ -4,9 +4,14 @@ import math
 import os
 import random
 from PIL import Image
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 from matplotlib import pyplot as plt
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.ticker import MultipleLocator
+from mpl_toolkits.mplot3d import Axes3D
 from multiprocessing import Pool
 
 import cv2
@@ -129,21 +134,22 @@ class DatasetCreator:
 
 # Class used for creating video to analyze new data from bag files.
 class VideoCreator:
-    def __init__(self, b_orientation, distances, b_position, frame_list, h_orientation, h_position, f, title="test.avi"):
+    def __init__(self, b_orientation, distances, b_position, frame_list, h_orientation, h_position, delta_z, f, title="test.avi"):
         self.fps = 30
         self.f = f
-        self.video_writer = cv2.VideoWriter(title, cv2.VideoWriter_fourcc(*'XVID'), self.fps, (640, 480))
+        self.video_writer = cv2.VideoWriter(title, cv2.VideoWriter_fourcc(*'XVID'), self.fps, (1240, 960))
         self.b_orientation = b_orientation
         self.b_position = b_position
         self.frame_list = frame_list
         self.h_orientation = h_orientation
         self.h_position = h_position
         self.distances = distances
+        self.delta_z = delta_z
 
     # given an index compose the frame for the video. Each frame has two graphs and the camera frame associated.
     def plotting_function(self, i):
         fig = plt.figure()
-        axl = fig.add_subplot(1, 3, 1)
+        axl = fig.add_subplot(1, 3, 1, projection='3d')
         axc = fig.add_subplot(1, 3, 2)
         axr = fig.add_subplot(1, 3, 3)
         canvas = FigureCanvas(fig)
@@ -183,10 +189,11 @@ class VideoCreator:
         # vertical_angle = math.degrees(math.atan2(r_t_h[2, 3], r_t_h[0, 3]))
 
         value_angle_axis = 45
-        axl.set_xbound(-value_angle_axis, value_angle_axis)
-        axl.set_ybound(0.1, 3)
-        axl.axis([-value_angle_axis, value_angle_axis, 0.1, 3], 'equal')
-        axl.plot(horizontal_angle, self.distances[i], "go")
+        axl.set_xlim(-value_angle_axis, value_angle_axis)
+        axl.set_ylim(0.1, 3)
+        axl.set_zlim(-1, 1)
+        # axl.axis([-value_angle_axis, value_angle_axis, 0.1, 3,-1,1], 'equal')
+        axl.scatter(horizontal_angle, self.distances[i],self.delta_z[i],color='g',marker="o")
 
         # Drawing the plot
         canvas.draw()
@@ -215,7 +222,8 @@ class VideoCreator:
     # composing the video
     def video_plot_creator(self):
         max_ = len(self.frame_list)
-        for i in tqdm.tqdm(range(0, max_)):
+        # for i in tqdm.tqdm(range(0, max_)):
+        for i in tqdm.tqdm(range(100, 400)):
             self.plotting_function(i)
         self.video_writer.release()
         cv2.destroyAllWindows()
@@ -347,6 +355,7 @@ def data_pre_processing(bag):
 
     # some variable inits
     distances = np.zeros((len(camera_np_array)))
+    delta_z = np.zeros((len(camera_np_array)))
     vect_structure = (len(camera_np_array), 3)
     hat_points = np.zeros(vect_structure)
     bebop_points = np.zeros(vect_structure)
@@ -369,13 +378,14 @@ def data_pre_processing(bag):
         bebop_points[i][1] = bebop_position.y
         bebop_points[i][2] = bebop_position.z
 
-        distances[i] = distance.pdist([hat_points[i], bebop_points[i]], 'euclidean')  # not 3d must be only 2d
+        distances[i] = distance.pdist([hat_points[i], bebop_points[i]], 'euclidean')
+        delta_z[i] = head_position.z-bebop_position.z
 
         h_sel_positions.append(head_position)
         b_sel_positions.append(bebop_position)
         h_sel_orientations.append(hat_orientation_list[hat_idx_nearest[i]])
         b_sel_orientations.append(bebop_orientation_list[bebop_idx_nearest[i]])
-    return b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions, distances
+    return b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions, distances, delta_z
 
 
 # method used for creating video for each bag file
@@ -383,13 +393,14 @@ def bag_to_vid(f):
     path = bag_file_path[f[:-4]]
     print("\nreading bag: " + str(f))
     bag = rosbag.Bag(path + f)
-    b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions, distance_list = data_pre_processing(bag)
+    b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions, distance_list, delta_z_list = data_pre_processing(bag)
     vidcr = VideoCreator(b_orientation=b_sel_orientations,
                          distances=distance_list,
                          b_position=b_sel_positions,
                          frame_list=frames_list,
                          h_orientation=h_sel_orientations,
                          h_position=h_sel_positions,
+                         delta_z=delta_z_list,
                          f=f,
                          title="./video/" + f[:-4] + ".avi")
     vidcr.video_plot_creator()
@@ -420,10 +431,15 @@ def main():
         for f_ in files2:
             files.append(f_)
 
-        pool = Pool(processes=4)
-        pool.map(bag_to_vid, files[:2])
-        pool.close()
-        pool.join()
+        scelta_2=raw_input("Single or multi:[s/m]")
+        if scelta_2=='s':
+            for f in files:
+                bag_to_vid(f)
+        else:
+            pool = Pool(processes=2)
+            pool.map(bag_to_vid, files[:2])
+            pool.close()
+            pool.join()
 
     else:
         # # compute dataset mean distance -- not used because the value now is hard coded
@@ -439,8 +455,8 @@ def main():
         #     _, _, _, _, _, distance_list = data_pre_processing(bag)
         #     sum_dist.append(np.mean(distance_list))
         #
-        # # validation
-        #
+        # validation
+
         # path = "./bagfiles/validation/"
         # files = [f for f in os.listdir(path) if f[-4:] == '.bag']
         # if not files:

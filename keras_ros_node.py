@@ -85,8 +85,9 @@ class TrainedModel:
         scaled_fr = cv2.resize(data, (107, 60))
         x_data = np.vstack(scaled_fr[:]).astype(np.float)
         x_data = np.reshape(x_data, (-1, 60, 107, 3))
+        x_data_normalized = x_data/255
         with self.graph.as_default():
-            y_pred = self.model.predict(x_data)
+            y_pred = self.model.predict(x_data_normalized)
         self.showResult(x_data[0], y_pred[0])
 
     # method that creates and show the image of the cnn results
