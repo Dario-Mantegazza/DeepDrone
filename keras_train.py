@@ -1,5 +1,6 @@
 import math
 import os
+import random
 
 import cv2
 import numpy as np
@@ -11,81 +12,21 @@ from sklearn import metrics
 from model_creator import model_creator
 
 
-# Cnn method contains the definition, training, testing and plotting of the CNN model and dataset
-def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_train, y_test, y_train):
-    model = model_creator(num_classes)
-
-    x_train = x_train.astype('float32')
-    x_test = x_test.astype('float32')
-
-    history = model.fit(x_train, y_train,
-                        batch_size=batch_size,
-                        epochs=epochs,
-                        validation_data=(x_test, y_test),
-                        shuffle=True)
-
-    # Save model and weights
-    if not os.path.isdir(save_dir):
-        os.makedirs(save_dir)
-    model_path = os.path.join(save_dir, model_name)
-    model.save(model_path)
-
-    w_save_dir = os.path.join(os.getcwd(), 'saved_weights')
-    w_name = 'keras_bebop_trained_weights.h5'
-    if not os.path.isdir(w_save_dir):
-        os.makedirs(w_save_dir)
-    w_path = os.path.join(w_save_dir, w_name)
-    model.save_weights(w_path)
-
-    print('Saved trained model at %s ' % model_path)
-    print('Saved trained weights at %s ' % w_path)
-    #
-    #
-    # clear_session()
-    # del model  # deletes the existing model
-    # model = keras.models.load_model("./saved_models/keras_bebop_trained_model.h5")
-
-    # Score trained model.
-    scores = model.evaluate(x_test, y_test, verbose=1)
-    y_pred = model.predict(x_test)
-    print('Test loss:', scores[0])
-    print('Test mse:', scores[1])
-
-    r2 = metrics.r2_score(y_test, y_pred)
-    print('Test r2:', r2)
-
-    mean_y = np.mean(y_test)
-    mean_array = np.full(y_test.shape, mean_y)
-    mae = metrics.mean_absolute_error(y_test, mean_array)
-    print("----- mean value regressor metric -----")
-    print('Mean mae:', mae)
-
-    # here the video are composed
-    # y_train_pred = model.predict(x_train)
-    #
-    # vidcr_train = KerasVideoCreator(x_test=x_train, labels=y_train, preds=y_train_pred, title="./video/train_result.avi")
-    # vidcr_train.video_plot_creator()
-
-    vidcr_test = KerasVideoCreator(x_test=x_test, labels=y_test, preds=y_pred, title="./video/test_result.avi")
-    vidcr_test.video_plot_creator()
-
-    # show some plots
-    plt.figure()
-    plt.plot(history.history['mean_squared_error'])
-    plt.plot(history.history['val_mean_squared_error'])
-    plt.title('model MSE')
-    plt.xlabel('epoch')
-    plt.ylabel('error')
-    plt.legend(['train', 'validation'], loc='upper right')
-
-    plt.figure()
-    plt.plot(history.history['loss'])
-    plt.plot(history.history['val_loss'])
-    plt.title('model loss')
-    plt.xlabel('epoch')
-    plt.ylabel('loss')
-    plt.legend(['train', 'test'], loc='upper right')
-
+def plot_results(history, y_pred, y_test):
+    # plt.figure()
+    # plt.plot(history.history['mean_squared_error'])
+    # plt.plot(history.history['val_mean_squared_error'])
+    # plt.title('model MSE')
+    # plt.xlabel('epoch')
+    # plt.ylabel('error')
+    # plt.legend(['train', 'validation'], loc='upper right')
+    # plt.figure()
+    # plt.plot(history.history['loss'])
+    # plt.plot(history.history['val_loss'])
+    # plt.title('model loss')
+    # plt.xlabel('epoch')
+    # plt.ylabel('loss')
+    # plt.legend(['train', 'test'], loc='upper right')
     plt.figure()
     plt.plot(y_test[:, 1])
     plt.plot(y_pred[:, 1])
@@ -93,7 +34,6 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
     plt.xlabel('frame')
     plt.ylabel('value')
     plt.legend(['test', 'pred'], loc='upper right')
-
     plt.figure()
     plt.plot(y_test[:, 0])
     plt.plot(y_pred[:, 0])
@@ -101,7 +41,6 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
     plt.xlabel('frame')
     plt.ylabel('value')
     plt.legend(['test', 'pred'], loc='upper right')
-
     plt.figure()
     plt.plot(y_test[:, 2])
     plt.plot(y_pred[:, 2])
@@ -109,20 +48,16 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
     plt.xlabel('frame')
     plt.ylabel('value')
     plt.legend(['test', 'pred'], loc='upper right')
-
     plt.figure()
     plt.scatter(y_test[:, 1], y_pred[:, 1])
     plt.title('scatter-plot angle')
     plt.xlabel('thruth')
     plt.ylabel('pred')
-
     plt.figure()
     plt.scatter(y_test[:, 0], y_pred[:, 0])
     plt.title('scatter-plot distance')
     plt.ylabel('pred')
     plt.xlabel('thruth')
-
-
     plt.figure()
     plt.scatter(y_test[:, 2], y_pred[:, 2])
     plt.title('scatter-plot delta z')
@@ -274,6 +209,74 @@ class KerasVideoCreator:
         cv2.destroyAllWindows()
 
 
+# Cnn method contains the definition, training, testing and plotting of the CNN model and dataset
+def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_train, y_test, y_train):
+    x_train = x_train.astype('float32')
+    x_test = x_test.astype('float32')
+
+    model = model_creator(num_classes)
+    batch_per_epoch = math.ceil(x_test.shape[0] / batch_size)
+    gen = generator(x_train, y_train, batch_size)
+    history = model.fit_generator(generator=gen, epochs=epochs, steps_per_epoch=batch_per_epoch)
+
+    # Save model and weights    model = model_creator(num_classes)
+    if not os.path.isdir(save_dir):
+        os.makedirs(save_dir)
+    model_path = os.path.join(save_dir, model_name)
+    model.save(model_path)
+
+    w_save_dir = os.path.join(os.getcwd(), 'saved_weights')
+    w_name = 'keras_bebop_trained_weights.h5'
+    if not os.path.isdir(w_save_dir):
+        os.makedirs(w_save_dir)
+    w_path = os.path.join(w_save_dir, w_name)
+    model.save_weights(w_path)
+
+    print('Saved trained model at %s ' % model_path)
+    print('Saved trained weights at %s ' % w_path)
+
+    # Score trained model.
+    scores = model.evaluate(x_test, y_test, verbose=1)
+    y_pred = model.predict(x_test)
+    print('Test loss:', scores[0])
+    print('Test mse:', scores[1])
+
+    r2 = metrics.r2_score(y_test, y_pred)
+    print('Test r2:', r2)
+
+    mean_y = np.mean(y_test)
+    mean_array = np.full(y_test.shape, mean_y)
+    mae = metrics.mean_absolute_error(y_test, mean_array)
+    print("----- mean value regressor metric -----")
+    print('Mean mae:', mae)
+
+    vidcr_test = KerasVideoCreator(x_test=x_test, labels=y_test, preds=y_pred, title="./video/test_result.avi")
+    vidcr_test.video_plot_creator()
+
+    # show some plots
+    plot_results(history, y_pred, y_test)
+
+
+def data_augmentor(frame, label, noise=False):
+    if np.random.choice([True, False]):
+        frame = np.fliplr(frame)
+        label[1] = -label[1]
+    return frame, label
+
+
+def generator(features, labels, batch_size):
+    # Create empty arrays to contain batch of features and labels#
+    # batch_features = np.zeros((batch_size, 64, 64, 3))
+    # batch_labels = np.zeros((batch_size, 1))
+    while True:
+        indexes = np.random.choice(np.arange(0, features.shape[0]), batch_size)
+        batch_features = features[indexes]
+        batch_labels = labels[indexes]
+        for i in range(0, batch_features.shape[0]):
+            batch_features[i], batch_labels[i] = data_augmentor(batch_features[i], batch_labels[i])
+        yield batch_features, batch_labels
+
+
 # ------------------- Main ----------------------
 def main():
     train = pd.read_pickle("./dataset/train.pickle").values
@@ -281,7 +284,7 @@ def main():
 
     batch_size = 64
     num_classes = 3
-    epochs = 5
+    epochs = 64
 
     save_dir = os.path.join(os.getcwd(), 'saved_models')
     model_name = 'keras_bebop_trained_model.h5'
@@ -299,9 +302,9 @@ def main():
     y_test = validation[:, 1]
     y_test = np.asarray([np.asarray(sublist) for sublist in y_test])
 
-    print('x_train shape:', x_train.shape)
-    print(x_train.shape[0], 'train samples')
-    print(x_test.shape[0], 'test samples')
+    print('x_train shape: ' + str(x_train.shape))
+    print('train samples: ' + str(x_train.shape[0]))
+    print('test samples:  ' + str(x_test.shape[0]))
 
     CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_train, y_test, y_train)
 

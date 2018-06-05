@@ -515,6 +515,23 @@ def main():
                                      f=f)
         datacr_val.save_dataset(flag_train=False)
 
+        # path1 = "./bagfiles/train/"
+        # path2 = "./bagfiles/validation/"
+        #
+        # files1 = [f for f in os.listdir(path1) if f[-4:] == '.bag']
+        # if not files1:
+        #     print('No bag files found!')
+        #     return None
+        # files2 = [f for f in os.listdir(path2) if f[-4:] == '.bag']
+        # if not files2:
+        #     print('No bag files found!')
+        #     return None
+        # files = []
+        # for f_ in files1:
+        #     files.append(f_)
+        # for f_ in files2:
+        #     files.append(f_)
+
 
 if __name__ == "__main__":
     main()

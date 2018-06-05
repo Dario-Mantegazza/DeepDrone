@@ -2,18 +2,42 @@ import math
 import os
 
 import cv2
+import keras
 import numpy as np
 import pandas as pd
 import tqdm
-
+from keras.layers import Conv2D, MaxPooling2D
+from keras.layers import Dense, Activation, Flatten
+from keras.models import Sequential
 from matplotlib import pyplot as plt
 from sklearn import metrics
-from model_creator import model_creator
 
 
 # Cnn method contains the definition, training, testing and plotting of the CNN model and dataset
 def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_train, y_test, y_train):
-    model = model_creator(num_classes)
+    model = Sequential()
+    model.add(Conv2D(10, (6, 6), padding='same', input_shape=(60, 107, 3), name="1_conv"))
+    model.add(Activation('relu'))
+    model.add(MaxPooling2D(pool_size=(3, 3), name="1_pool"))
+    model.add(Conv2D(15, (6, 6), padding='same'))
+    model.add(Activation('relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2)))
+    model.add(Conv2D(20, (6, 6), padding='same'))
+    model.add(Activation('relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2)))
+    model.add(Flatten())
+    model.add(Dense(256))
+    model.add(Activation('relu'))
+    model.add(Dense(64))
+    model.add(Activation('relu'))
+    model.add(Dense(num_classes))
+    model.add(Activation('linear'))
+
+    opt = keras.optimizers.rmsprop(lr=0.001, decay=1e-6)
+
+    model.compile(loss='mean_absolute_error',
+                  optimizer=opt,
+                  metrics=['mse'])
     x_train = x_train.astype('float32')
     x_test = x_test.astype('float32')
 
@@ -38,6 +62,11 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
 
     print('Saved trained model at %s ' % model_path)
     print('Saved trained weights at %s ' % w_path)
+    #
+    #
+    # clear_session()
+    # del model  # deletes the existing model
+    # model = keras.models.load_model("./saved_models/keras_bebop_trained_model.h5")
 
     # Score trained model.
     scores = model.evaluate(x_test, y_test, verbose=1)
@@ -63,10 +92,6 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
     vidcr_test = KerasVideoCreator(x_test=x_test, labels=y_test, preds=y_pred, title="./video/test_result.avi")
     vidcr_test.video_plot_creator()
 
-    result_plot(history, y_pred, y_test)
-
-
-def result_plot(history, y_pred, y_test):
     # show some plots
     plt.figure()
     plt.plot(history.history['mean_squared_error'])
@@ -75,6 +100,7 @@ def result_plot(history, y_pred, y_test):
     plt.xlabel('epoch')
     plt.ylabel('error')
     plt.legend(['train', 'validation'], loc='upper right')
+
     plt.figure()
     plt.plot(history.history['loss'])
     plt.plot(history.history['val_loss'])
@@ -82,6 +108,7 @@ def result_plot(history, y_pred, y_test):
     plt.xlabel('epoch')
     plt.ylabel('loss')
     plt.legend(['train', 'test'], loc='upper right')
+
     plt.figure()
     plt.plot(y_test[:, 1])
     plt.plot(y_pred[:, 1])
@@ -89,6 +116,7 @@ def result_plot(history, y_pred, y_test):
     plt.xlabel('frame')
     plt.ylabel('value')
     plt.legend(['test', 'pred'], loc='upper right')
+
     plt.figure()
     plt.plot(y_test[:, 0])
     plt.plot(y_pred[:, 0])
@@ -96,6 +124,7 @@ def result_plot(history, y_pred, y_test):
     plt.xlabel('frame')
     plt.ylabel('value')
     plt.legend(['test', 'pred'], loc='upper right')
+
     plt.figure()
     plt.plot(y_test[:, 2])
     plt.plot(y_pred[:, 2])
@@ -103,16 +132,20 @@ def result_plot(history, y_pred, y_test):
     plt.xlabel('frame')
     plt.ylabel('value')
     plt.legend(['test', 'pred'], loc='upper right')
+
     plt.figure()
     plt.scatter(y_test[:, 1], y_pred[:, 1])
     plt.title('scatter-plot angle')
     plt.xlabel('thruth')
     plt.ylabel('pred')
+
     plt.figure()
     plt.scatter(y_test[:, 0], y_pred[:, 0])
     plt.title('scatter-plot distance')
     plt.ylabel('pred')
     plt.xlabel('thruth')
+
+
     plt.figure()
     plt.scatter(y_test[:, 2], y_pred[:, 2])
     plt.title('scatter-plot delta z')
