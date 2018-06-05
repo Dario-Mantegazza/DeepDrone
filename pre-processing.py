@@ -4,10 +4,6 @@ import math
 import os
 import random
 from PIL import Image
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
 from matplotlib import pyplot as plt
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.ticker import MultipleLocator
@@ -75,7 +71,7 @@ class DatasetCreator:
         pass
 
     # Main method of the class, cycles through different nparrays and call other methods to compose the dataset.
-    def generate_data(self, flag, mean_dist, distances, b_orientation, b_position, frame_list, h_orientation, h_position, f):
+    def generate_data(self, flag, mean_dist, distances, b_orientation, b_position, frame_list, h_orientation, h_position, delta_z,f):
         self.b_orientation = b_orientation
         self.b_position = b_position
         self.frame_list = frame_list
@@ -84,6 +80,7 @@ class DatasetCreator:
         self.flag = flag
         self.mean_dist = mean_dist
         self.distances = distances
+        self.delta_z = delta_z
         max_ = bag_end_cut[f[:-4]]
         min_ = bag_start_cut[f[:-4]]
         for i in tqdm.tqdm(range(min_, max_)):
@@ -104,7 +101,7 @@ class DatasetCreator:
         if self.flag == 'both':
             r_t_h = matrix_method(self.b_position[i], self.b_orientation[i], self.h_position[i], self.h_orientation[i])
             horizontal_angle = -math.degrees(math.atan2(r_t_h[1, 3], r_t_h[0, 3]))
-            label = (self.distances[i], horizontal_angle)
+            label = (self.distances[i], horizontal_angle, self.delta_z[i])
 
         elif self.flag == 'angle':
             r_t_h = matrix_method(self.b_position[i], self.b_orientation[i], self.h_position[i], self.h_orientation[i])
@@ -137,7 +134,7 @@ class VideoCreator:
     def __init__(self, b_orientation, distances, b_position, frame_list, h_orientation, h_position, delta_z, f, title="test.avi"):
         self.fps = 30
         self.f = f
-        self.video_writer = cv2.VideoWriter(title, cv2.VideoWriter_fourcc(*'XVID'), self.fps, (1240, 960))
+        self.video_writer = cv2.VideoWriter(title, cv2.VideoWriter_fourcc(*'XVID'), self.fps, (640, 480))
         self.b_orientation = b_orientation
         self.b_position = b_position
         self.frame_list = frame_list
@@ -149,11 +146,12 @@ class VideoCreator:
     # given an index compose the frame for the video. Each frame has two graphs and the camera frame associated.
     def plotting_function(self, i):
         fig = plt.figure()
-        axl = fig.add_subplot(1, 3, 1, projection='3d')
-        axc = fig.add_subplot(1, 3, 2)
-        axr = fig.add_subplot(1, 3, 3)
+        fig.suptitle("Frame: " + str(i), fontsize=12)
+        axll = fig.add_subplot(2, 2, 1)
+        axl = fig.add_subplot(2, 2, 2)
+        axc = fig.add_subplot(2, 2, 3)
+        axr = fig.add_subplot(2, 2, 4)
         canvas = FigureCanvas(fig)
-        plt.title("Frame: " + str(i))
 
         # Central image: here we add the camera feed to the video
         img = Image.open(io.BytesIO(self.frame_list[i]))
@@ -191,19 +189,27 @@ class VideoCreator:
         value_angle_axis = 45
         axl.set_xlim(-value_angle_axis, value_angle_axis)
         axl.set_ylim(0.1, 3)
-        axl.set_zlim(-1, 1)
-        # axl.axis([-value_angle_axis, value_angle_axis, 0.1, 3,-1,1], 'equal')
-        axl.scatter(horizontal_angle, self.distances[i],self.delta_z[i],color='g',marker="o")
+        axl.set_xlabel('Angle y')
+        axl.set_ylabel('Distance')
+        # axl.axis([-value_angle_axis, value_angle_axis, 0.1, 3], 'equal')
+        axl.plot(horizontal_angle, self.distances[i],'go')
 
+        axll.set_xlim(-value_angle_axis, value_angle_axis)
+        axll.set_ylim(-1, 1)
+        axll.set_xlabel('Angle y')
+        axll.set_ylabel('Delta z')
+        axll.plot(horizontal_angle, self.delta_z[i], 'go')
         # Drawing the plot
         canvas.draw()
+
+
 
         # some additional informations as arrows
         width, height = (fig.get_size_inches() * fig.get_dpi()).astype(dtype='int32')
         img = np.fromstring(canvas.tostring_rgb(), dtype='uint8').reshape(height, width, 3)
         img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-        pt1 = (275, 25)
-        pt2 = (375, 25)
+        pt1 = (275, 40)
+        pt2 = (375, 40)
         if horizontal_angle >= 0:
             cv2.arrowedLine(img, pt1, pt2, (0, 0, 255), 3)
         else:
@@ -379,7 +385,7 @@ def data_pre_processing(bag):
         bebop_points[i][2] = bebop_position.z
 
         distances[i] = distance.pdist([hat_points[i], bebop_points[i]], 'euclidean')
-        delta_z[i] = head_position.z-bebop_position.z
+        delta_z[i] = head_position.z - bebop_position.z
 
         h_sel_positions.append(head_position)
         b_sel_positions.append(bebop_position)
@@ -431,12 +437,12 @@ def main():
         for f_ in files2:
             files.append(f_)
 
-        scelta_2=raw_input("Single or multi:[s/m]")
-        if scelta_2=='s':
+        scelta_2 = raw_input("Single or multi:[s/m]")
+        if scelta_2 == 's':
             for f in files:
                 bag_to_vid(f)
         else:
-            pool = Pool(processes=2)
+            pool = Pool(processes=4)
             pool.map(bag_to_vid, files[:2])
             pool.close()
             pool.join()
@@ -484,11 +490,18 @@ def main():
 
         for f in files:
             bag = rosbag.Bag(path + f)
-            b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions, distance_list = data_pre_processing(bag)
+            b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions, distance_list, delta_z_list = data_pre_processing(bag)
 
-            datacr_train.generate_data(flag='both', mean_dist=dist_mean, distances=distance_list, b_orientation=b_sel_orientations, b_position=b_sel_positions, frame_list=frames_list,
+            datacr_train.generate_data(flag='both',
+                                       mean_dist=dist_mean,
+                                       distances=distance_list,
+                                       b_orientation=b_sel_orientations,
+                                       b_position=b_sel_positions,
+                                       frame_list=frames_list,
                                        h_orientation=h_sel_orientations,
-                                       h_position=h_sel_positions, f=f)
+                                       h_position=h_sel_positions,
+                                       delta_z=delta_z_list,
+                                       f=f)
         datacr_train.save_dataset(flag_train=True)
 
         # validation
@@ -501,10 +514,17 @@ def main():
 
         for f in files:
             bag = rosbag.Bag(path + f)
-            b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions, distance_list = data_pre_processing(bag)
-            datacr_val.generate_data(flag='both', mean_dist=dist_mean, distances=distance_list, b_orientation=b_sel_orientations, b_position=b_sel_positions, frame_list=frames_list,
+            b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions, distance_list, delta_z_list = data_pre_processing(bag)
+            datacr_val.generate_data(flag='both',
+                                     mean_dist=dist_mean,
+                                     distances=distance_list,
+                                     b_orientation=b_sel_orientations,
+                                     b_position=b_sel_positions,
+                                     frame_list=frames_list,
                                      h_orientation=h_sel_orientations,
-                                     h_position=h_sel_positions, f=f)
+                                     h_position=h_sel_positions,
+                                     delta_z=delta_z_list,
+                                     f=f)
         datacr_val.save_dataset(flag_train=False)
 
 

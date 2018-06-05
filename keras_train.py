@@ -42,10 +42,6 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
     x_train = x_train.astype('float32')
     x_test = x_test.astype('float32')
 
-    # data is normalized
-    x_train /= 255
-    x_test /= 255
-
     history = model.fit(x_train, y_train,
                         batch_size=batch_size,
                         epochs=epochs,
@@ -131,6 +127,14 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
     plt.legend(['test', 'pred'], loc='upper right')
 
     plt.figure()
+    plt.plot(y_test[:, 2])
+    plt.plot(y_pred[:, 2])
+    plt.title('test-prediction delta z')
+    plt.xlabel('frame')
+    plt.ylabel('value')
+    plt.legend(['test', 'pred'], loc='upper right')
+
+    plt.figure()
     plt.scatter(y_test[:, 1], y_pred[:, 1])
     plt.title('scatter-plot angle')
     plt.xlabel('thruth')
@@ -142,6 +146,12 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
     plt.ylabel('pred')
     plt.xlabel('thruth')
 
+
+    plt.figure()
+    plt.scatter(y_test[:, 2], y_pred[:, 2])
+    plt.title('scatter-plot delta z')
+    plt.ylabel('pred')
+    plt.xlabel('thruth')
     plt.show()
 
 
@@ -160,30 +170,50 @@ class KerasVideoCreator:
     # function used to compose the frame
     def frame_composer(self, i):
         # Adjusting the image
-        img = 1 - (255 * self.frame_list[i]).astype(np.uint8)
+        img = 1 - (self.frame_list[i]).astype(np.uint8)
         scaled = cv2.resize(img, (0, 0), fx=2, fy=2)
         vert_p = 180
         hor_p = 213
         im_pad = cv2.copyMakeBorder(scaled, vert_p, vert_p, hor_p, hor_p, cv2.BORDER_CONSTANT, value=self.PADCOLOR)
         im_final = cv2.cvtColor(im_pad, cv2.COLOR_RGB2BGR)
 
-        # creating the graphics for showing the results
-        drone_center = (50, 150)
-        cv2.circle(im_final, center=drone_center, radius=2, color=(0, 0, 0), thickness=3)
+        # Setting some variables
+        font = cv2.FONT_HERSHEY_SIMPLEX
         y_d = self.preds[i]
         l_d = self.labels[i]
-        arrow_l = 40
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        angle_deg = y_d[1]
-        angle_rad = math.radians(angle_deg - 90.0)
+        arrow_len = 40
         scale_arrow = 50
 
-        cv2.arrowedLine(im_final, drone_center, (int(50 + arrow_l * np.cos(angle_rad)), int(150 + arrow_l * np.sin(angle_rad))), (0, 0, 255), 2)
-        cv2.arrowedLine(im_final, drone_center, (50, int(150 + scale_arrow * (1.437 - y_d[0]))), (0, 255, 0), 2)
-        cv2.putText(im_final, "angle_t: " + str(l_d[1]), (30, 70), font, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
-        cv2.putText(im_final, "angle_pr: " + str(angle_deg), (30, 90), font, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
-        cv2.putText(im_final, "dist_t: " + str(l_d[0]), (30, 30), font, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
-        cv2.putText(im_final, "dist_pr: " + str(y_d[0]), (30, 50), font, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
+        # Top view
+        cv2.putText(im_final, "Top View", (35, 90), font, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
+        c_t_x = 55  # center top view x
+        c_t_y = 170  # center top view y
+        drone_top_view = (c_t_x, c_t_y)
+        angle_deg = y_d[1]
+        angle_rad = math.radians(angle_deg - 90.0)
+        cv2.circle(im_final, center=drone_top_view, radius=2, color=(0, 0, 0), thickness=3)
+        cv2.arrowedLine(im_final, drone_top_view, (int(c_t_x + arrow_len * np.cos(angle_rad)), int(c_t_y + arrow_len * np.sin(angle_rad))), (255, 0, 0), 1)  # heading arrow
+        cv2.arrowedLine(im_final, drone_top_view, (c_t_x, int(c_t_y + scale_arrow * (1.437 - y_d[0]))), (0, 255, 0), 1)  # distance arrow
+
+        # Right side View
+        arrow_r_len = 20
+        vertical_scale = 20
+        cv2.putText(im_final, "Right side View", (35, 300), font, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
+        c_r_x = 55
+        c_r_y = 280
+        drone_right_center = (c_r_x, c_r_y)
+        cv2.circle(im_final, center=drone_right_center, radius=2, color=(0, 0, 0), thickness=3)
+        cv2.arrowedLine(im_final, (c_r_x, c_r_y + int(vertical_scale * y_d[2])), (c_r_x + arrow_r_len, c_r_y + int(vertical_scale * y_d[2])), (255, 0, 0), 1)  # delta x arrow
+        cv2.arrowedLine(im_final, drone_right_center, (int(c_r_x + scale_arrow * (y_d[0] - 1.437)), c_r_y), (0, 255, 0), 1)  # distance arrow
+
+        # Text Information
+        cv2.putText(im_final, "Distance T: %.3f" % (l_d[0]), (15, 15), font, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
+        cv2.putText(im_final, "Distance P: %.3f" % (y_d[0]), (15, 35), font, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
+        cv2.putText(im_final, "Angle T: %.3f" % (l_d[1]), (170, 15), font, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
+        cv2.putText(im_final, "Angle P: %.3f" % angle_deg, (170, 35), font, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
+        cv2.putText(im_final, "Delta z T: %.3f" % (l_d[2]), (330, 15), font, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
+        cv2.putText(im_final, "Delta z P: %.3f" % (y_d[2]), (330, 35), font, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
+
         self.video_writer.write(im_final)
 
     def video_plot_creator(self):
@@ -197,7 +227,7 @@ class KerasVideoCreator:
 # method not used, useful to have a peek at the images anywhere in the code
 def showResult(frame):
     img = (255 * frame).astype(np.uint8)
-    # scaled = cv2.resize(img, (0, 0), fx=2, fy=2)
+    scaled = cv2.resize(img, (0, 0), fx=2, fy=2)
     im_final = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
     # im_final = cv2.resize(im_final, (640, 480))
     cv2.imshow("Display window", im_final)
@@ -210,8 +240,8 @@ def main():
     validation = pd.read_pickle("./dataset/validation.pickle").values
 
     batch_size = 64
-    num_classes = 2
-    epochs = 100
+    num_classes = 3
+    epochs = 1
 
     save_dir = os.path.join(os.getcwd(), 'saved_models')
     model_name = 'keras_bebop_trained_model.h5'
