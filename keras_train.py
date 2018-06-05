@@ -270,9 +270,9 @@ class KerasVideoCreator:
         h_x = 640
         h_y = 90
         cv2.putText(im_final, "Delta Height", (h_x, h_y), font, 0.5, text_color, 1, cv2.LINE_AA)
-        cv2.putText(im_final, "+1", (h_x + 65, h_y + 15), font, 0.4, text_color, 1, cv2.LINE_AA)
-        cv2.putText(im_final, "0", (h_x + 65, h_y + 164), font, 0.4, text_color, 1, cv2.LINE_AA)
-        cv2.putText(im_final, "-1", (h_x + 65, h_y + 312), font, 0.4, text_color, 1, cv2.LINE_AA)
+        cv2.putText(im_final, "+1 m", (h_x + 65, h_y + 15), font, 0.4, text_color, 1, cv2.LINE_AA)
+        cv2.putText(im_final, "0 m", (h_x + 65, h_y + 164), font, 0.4, text_color, 1, cv2.LINE_AA)
+        cv2.putText(im_final, "-1 m", (h_x + 65, h_y + 312), font, 0.4, text_color, 1, cv2.LINE_AA)
 
         cv2.rectangle(im_final, (h_x + 30, h_y + 10), (h_x + 60, h_y + 310), color=(0, 0, 0), thickness=2)
         cv2.line(im_final, (h_x + 35, h_y + 160), (h_x + 55, h_y + 160), color=(0, 0, 0), thickness=1)
@@ -295,14 +295,6 @@ class KerasVideoCreator:
             self.frame_composer(i)
         self.video_writer.release()
         cv2.destroyAllWindows()
-
-
-# method not used, useful to have a peek at the images anywhere in the code
-def showResult(frame):
-    img = (255 * frame).astype(np.uint8)
-    im_final = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-    cv2.imshow("Display window", im_final)
-    cv2.waitKey(1)
 
 
 # ------------------- Main ----------------------
