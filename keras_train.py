@@ -1,16 +1,15 @@
 import math
 import os
-from matplotlib import pyplot as plt
 
 import cv2
 import keras
 import numpy as np
 import pandas as pd
-import tqdm as tqdm
-from keras.backend import clear_session
+import tqdm
 from keras.layers import Conv2D, MaxPooling2D
 from keras.layers import Dense, Activation, Flatten
 from keras.models import Sequential
+from matplotlib import pyplot as plt
 from sklearn import metrics
 
 
@@ -159,61 +158,135 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
 class KerasVideoCreator:
     def __init__(self, x_test, labels, preds, title="Validation.avi"):
         self.fps = 30
-        self.width = 640
+        self.width = 1280
         self.height = 480
         self.video_writer = cv2.VideoWriter(title, cv2.VideoWriter_fourcc(*'XVID'), self.fps, (self.width, self.height))
         self.frame_list = x_test
         self.labels = labels
         self.preds = preds
-        self.PADCOLOR = [200, 200, 200]
+        self.PADCOLOR = [255, 255, 255]
+        self.drone_im = cv2.resize(cv2.imread("drone.png"), (0, 0), fx=0.08, fy=0.08)
 
     # function used to compose the frame
     def frame_composer(self, i):
         # Adjusting the image
-        img = 1 - (self.frame_list[i]).astype(np.uint8)
-        scaled = cv2.resize(img, (0, 0), fx=2, fy=2)
-        vert_p = 180
-        hor_p = 213
-        im_pad = cv2.copyMakeBorder(scaled, vert_p, vert_p, hor_p, hor_p, cv2.BORDER_CONSTANT, value=self.PADCOLOR)
-        im_final = cv2.cvtColor(im_pad, cv2.COLOR_RGB2BGR)
+        img_f = 1 - (self.frame_list[i]).astype(np.uint8)
+        scaled = cv2.resize(img_f, (0, 0), fx=4, fy=4)
+        vert_p = int((480 - scaled.shape[0]) / 2)
+
+        hor_p = int((640 - scaled.shape[1]) / 2)
+        im_pad = cv2.copyMakeBorder(scaled,
+                                    vert_p,
+                                    vert_p if vert_p * 2 + scaled.shape[0] == 480 else vert_p + (480 - (vert_p * 2 + scaled.shape[0])),
+                                    hor_p,
+                                    hor_p if hor_p * 2 + scaled.shape[1] == 640 else hor_p + (640 - (hor_p * 2 + scaled.shape[1])),
+                                    cv2.BORDER_CONSTANT, value=self.PADCOLOR)
+        im_partial = cv2.cvtColor(im_pad, cv2.COLOR_RGB2BGR)
+        data_area = (np.ones((480, 640, 3)) * 255).astype(np.uint8)
+        im_final = np.hstack((data_area, im_partial))
 
         # Setting some variables
-        font = cv2.FONT_HERSHEY_SIMPLEX
+        font = cv2.FONT_HERSHEY_DUPLEX
+        text_color = (0, 0, 0)
         y_d = self.preds[i]
         l_d = self.labels[i]
-        arrow_len = 40
-        scale_arrow = 50
+        cv2.putText(im_final, "Frame: %s" % i, (900, 50), font, 0.5, text_color, 1, cv2.LINE_AA)
 
         # Top view
-        cv2.putText(im_final, "Top View", (35, 90), font, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
-        c_t_x = 55  # center top view x
-        c_t_y = 170  # center top view y
-        drone_top_view = (c_t_x, c_t_y)
+        triangle_color = (255, 229, 204)
         angle_deg = y_d[1]
-        angle_rad = math.radians(angle_deg - 90.0)
-        cv2.circle(im_final, center=drone_top_view, radius=2, color=(0, 0, 0), thickness=3)
-        cv2.arrowedLine(im_final, drone_top_view, (int(c_t_x + arrow_len * np.cos(angle_rad)), int(c_t_y + arrow_len * np.sin(angle_rad))), (255, 0, 0), 1)  # heading arrow
-        cv2.arrowedLine(im_final, drone_top_view, (c_t_x, int(c_t_y + scale_arrow * (1.437 - y_d[0]))), (0, 255, 0), 1)  # distance arrow
-
-        # Right side View
-        arrow_r_len = 20
-        vertical_scale = 20
-        cv2.putText(im_final, "Right side View", (35, 300), font, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
-        c_r_x = 55
-        c_r_y = 280
-        drone_right_center = (c_r_x, c_r_y)
-        cv2.circle(im_final, center=drone_right_center, radius=2, color=(0, 0, 0), thickness=3)
-        cv2.arrowedLine(im_final, (c_r_x, c_r_y + int(vertical_scale * y_d[2])), (c_r_x + arrow_r_len, c_r_y + int(vertical_scale * y_d[2])), (255, 0, 0), 1)  # delta x arrow
-        cv2.arrowedLine(im_final, drone_right_center, (int(c_r_x + scale_arrow * (y_d[0] - 1.437)), c_r_y), (0, 255, 0), 1)  # distance arrow
 
         # Text Information
-        cv2.putText(im_final, "Distance T: %.3f" % (l_d[0]), (15, 15), font, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
-        cv2.putText(im_final, "Distance P: %.3f" % (y_d[0]), (15, 35), font, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
-        cv2.putText(im_final, "Angle T: %.3f" % (l_d[1]), (170, 15), font, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
-        cv2.putText(im_final, "Angle P: %.3f" % angle_deg, (170, 35), font, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
-        cv2.putText(im_final, "Delta z T: %.3f" % (l_d[2]), (330, 15), font, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
-        cv2.putText(im_final, "Delta z P: %.3f" % (y_d[2]), (330, 35), font, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
+        cv2.putText(im_final, "Distance T: %.3f" % (l_d[0]), (20, 20), font, 0.5, text_color, 1, cv2.LINE_AA)
+        cv2.putText(im_final, "Distance P: %.3f" % (y_d[0]), (20, 40), font, 0.5, text_color, 1, cv2.LINE_AA)
+        cv2.putText(im_final, "Angle T: %.3f" % (l_d[1]), (220, 20), font, 0.5, text_color, 1, cv2.LINE_AA)
+        cv2.putText(im_final, "Angle P: %.3f" % angle_deg, (220, 40), font, 0.5, text_color, 1, cv2.LINE_AA)
+        cv2.putText(im_final, "Delta z T: %.3f" % (l_d[2]), (400, 20), font, 0.5, text_color, 1, cv2.LINE_AA)
+        cv2.putText(im_final, "Delta z P: %.3f" % (y_d[2]), (400, 40), font, 0.5, text_color, 1, cv2.LINE_AA)
 
+        # draw legend
+        pr_color = (255, 0, 0)
+
+        gt_color = (0, 255, 0)
+
+        cv2.putText(im_final, "Truth", (420, 425), font, 0.5, text_color, 1, cv2.LINE_AA)
+        cv2.circle(im_final, center=(405, 420), radius=5, color=gt_color, thickness=2)
+
+        cv2.putText(im_final, "Prediction", (420, 455), font, 0.5, text_color, 1, cv2.LINE_AA)
+        cv2.circle(im_final, center=(405, 450), radius=5, color=pr_color, thickness=5)
+
+        # Draw FOV and drone
+        t_x = 330
+        t_y = 400
+        camera_fov = 90
+        triangle_side_len = 400
+        x_offset = t_x - self.drone_im.shape[0] / 2 - 4
+        y_offset = t_y - 7
+        im_final[y_offset:y_offset + self.drone_im.shape[0], x_offset:x_offset + self.drone_im.shape[1]] = self.drone_im
+        triangle = np.array([[int(t_x - (math.sin(math.radians(camera_fov / 2)) * triangle_side_len)), int(t_y - (math.cos(math.radians(camera_fov / 2)) * triangle_side_len))],
+                             [t_x, t_y],
+                             [int(t_x + (math.sin(math.radians(camera_fov / 2)) * triangle_side_len)), int(t_y - (math.cos(math.radians(camera_fov / 2)) * triangle_side_len))]], np.int32)
+        cv2.fillConvexPoly(im_final, triangle, color=triangle_color, lineType=1)
+        scale_factor = (math.cos(math.radians(camera_fov / 2)) * triangle_side_len) / (2 * 1.437)
+
+        cv2.putText(im_final, "Relative pose", (300, 90), font, 0.5, text_color, 1, cv2.LINE_AA)
+        cv2.line(im_final,
+                 (30, int(t_y - (math.cos(math.radians(camera_fov / 2)) * triangle_side_len))),
+                 (30, t_y),
+                 color=(0, 0, 0),
+                 thickness=1)
+
+        cv2.line(im_final,
+                 (15, int((t_y - (math.cos(math.radians(camera_fov / 2)) * triangle_side_len)))),
+                 (30, int((t_y - (math.cos(math.radians(camera_fov / 2)) * triangle_side_len)))),
+                 color=(0, 0, 0),
+                 thickness=1)
+        cv2.putText(im_final, "2.8 m", (31, int((t_y - (math.cos(math.radians(camera_fov / 2)) * triangle_side_len)))), font, 0.4, text_color, 1, cv2.LINE_AA)
+        cv2.line(im_final,
+                 (15, int((t_y - ((math.cos(math.radians(camera_fov / 2)) * triangle_side_len) / 2)))),
+                 (30, int((t_y - ((math.cos(math.radians(camera_fov / 2)) * triangle_side_len) / 2)))),
+                 color=(0, 0, 0),
+                 thickness=1)
+        cv2.putText(im_final, "1.4 m", (31, int((t_y + 3 - ((math.cos(math.radians(camera_fov / 2)) * triangle_side_len) / 2)))), font, 0.4, text_color, 1, cv2.LINE_AA)
+        cv2.line(im_final,
+                 (15, t_y),
+                 (30, t_y),
+                 color=(0, 0, 0),
+                 thickness=1)
+        cv2.putText(im_final, "0 m", (31, t_y + 5), font, 0.4, text_color, 1, cv2.LINE_AA)
+
+        # draw GT
+        gt_center = (int((t_x + scale_factor * (math.sin(math.radians(self.labels[i, 1])) * self.labels[i, 0]))),
+                     int((t_y - scale_factor * (math.cos(math.radians(self.labels[i, 1])) * self.labels[i, 0]))))
+        cv2.circle(im_final, center=gt_center, radius=5, color=gt_color, thickness=2)
+
+        # draw Pred
+        pr_center = (int((t_x + scale_factor * (math.sin(math.radians(self.preds[i, 1])) * self.preds[i, 0]))),
+                     int((t_y - scale_factor * (math.cos(math.radians(self.preds[i, 1])) * self.preds[i, 0]))))
+        cv2.circle(im_final, center=pr_center, radius=5, color=pr_color, thickness=5)
+
+        # draw height
+
+        h_x = 640
+        h_y = 90
+        cv2.putText(im_final, "Delta Height", (h_x, h_y), font, 0.5, text_color, 1, cv2.LINE_AA)
+        cv2.putText(im_final, "+1", (h_x + 65, h_y + 15), font, 0.4, text_color, 1, cv2.LINE_AA)
+        cv2.putText(im_final, "0", (h_x + 65, h_y + 164), font, 0.4, text_color, 1, cv2.LINE_AA)
+        cv2.putText(im_final, "-1", (h_x + 65, h_y + 312), font, 0.4, text_color, 1, cv2.LINE_AA)
+
+        cv2.rectangle(im_final, (h_x + 30, h_y + 10), (h_x + 60, h_y + 310), color=(0, 0, 0), thickness=2)
+        cv2.line(im_final, (h_x + 35, h_y + 160), (h_x + 55, h_y + 160), color=(0, 0, 0), thickness=1)
+        h_c_x = h_x + 45
+        h_c_y = h_y + 160
+
+        h_scale_factor = 300 / 2
+
+        gt_h_center = (h_c_x,
+                       int((h_c_y - h_scale_factor * self.labels[i, 2])))
+        pr_h_center = (h_c_x,
+                       int((h_c_y - h_scale_factor * self.preds[i, 2])))
+        cv2.circle(im_final, center=gt_h_center, radius=5, color=gt_color, thickness=2)
+        cv2.circle(im_final, center=pr_h_center, radius=5, color=pr_color, thickness=5)
         self.video_writer.write(im_final)
 
     def video_plot_creator(self):
@@ -227,9 +300,7 @@ class KerasVideoCreator:
 # method not used, useful to have a peek at the images anywhere in the code
 def showResult(frame):
     img = (255 * frame).astype(np.uint8)
-    scaled = cv2.resize(img, (0, 0), fx=2, fy=2)
     im_final = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-    # im_final = cv2.resize(im_final, (640, 480))
     cv2.imshow("Display window", im_final)
     cv2.waitKey(1)
 
@@ -241,7 +312,7 @@ def main():
 
     batch_size = 64
     num_classes = 3
-    epochs = 1
+    epochs = 5
 
     save_dir = os.path.join(os.getcwd(), 'saved_models')
     model_name = 'keras_bebop_trained_model.h5'

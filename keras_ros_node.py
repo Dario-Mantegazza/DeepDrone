@@ -3,14 +3,12 @@ import io
 import math
 import sys
 from PIL import Image
-from subprocess import call
 
 import cv2
 import keras
 import numpy as np
 import rospy
 import tensorflow as tf
-from gtts import gTTS
 from keras.backend import clear_session
 from keras.models import Sequential
 from numpy import array
@@ -46,7 +44,7 @@ class PID:
 
     def step(self, e, dt):
         """ dt should be the time interval from the last method call """
-        if (self.last_e is not None):
+        if self.last_e is not None:
             derivative = (e - self.last_e) / dt
         else:
             derivative = 0

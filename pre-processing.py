@@ -4,10 +4,6 @@ import math
 import os
 import random
 from PIL import Image
-from matplotlib import pyplot as plt
-from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-from matplotlib.ticker import MultipleLocator
-from mpl_toolkits.mplot3d import Axes3D
 from multiprocessing import Pool
 
 import cv2
@@ -16,6 +12,9 @@ import pandas as pd
 import rosbag
 import tf
 import tqdm as tqdm
+from matplotlib import pyplot as plt
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+from matplotlib.ticker import MultipleLocator
 from scipy.spatial import distance
 from transforms3d.derivations.quaternions import quat2mat
 
