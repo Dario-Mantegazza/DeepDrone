@@ -5,16 +5,15 @@ import cv2
 import numpy as np
 import pandas as pd
 import tqdm
+
 from matplotlib import pyplot as plt
 from sklearn import metrics
-
 from model_creator import model_creator
 
 
 # Cnn method contains the definition, training, testing and plotting of the CNN model and dataset
 def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_train, y_test, y_train):
     model = model_creator(num_classes)
-
     x_train = x_train.astype('float32')
     x_test = x_test.astype('float32')
 
@@ -39,11 +38,6 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
 
     print('Saved trained model at %s ' % model_path)
     print('Saved trained weights at %s ' % w_path)
-    #
-    #
-    # clear_session()
-    # del model  # deletes the existing model
-    # model = keras.models.load_model("./saved_models/keras_bebop_trained_model.h5")
 
     # Score trained model.
     scores = model.evaluate(x_test, y_test, verbose=1)
@@ -69,6 +63,10 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
     vidcr_test = KerasVideoCreator(x_test=x_test, labels=y_test, preds=y_pred, title="./video/test_result.avi")
     vidcr_test.video_plot_creator()
 
+    result_plot(history, y_pred, y_test)
+
+
+def result_plot(history, y_pred, y_test):
     # show some plots
     plt.figure()
     plt.plot(history.history['mean_squared_error'])
@@ -77,7 +75,6 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
     plt.xlabel('epoch')
     plt.ylabel('error')
     plt.legend(['train', 'validation'], loc='upper right')
-
     plt.figure()
     plt.plot(history.history['loss'])
     plt.plot(history.history['val_loss'])
@@ -85,7 +82,6 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
     plt.xlabel('epoch')
     plt.ylabel('loss')
     plt.legend(['train', 'test'], loc='upper right')
-
     plt.figure()
     plt.plot(y_test[:, 1])
     plt.plot(y_pred[:, 1])
@@ -93,7 +89,6 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
     plt.xlabel('frame')
     plt.ylabel('value')
     plt.legend(['test', 'pred'], loc='upper right')
-
     plt.figure()
     plt.plot(y_test[:, 0])
     plt.plot(y_pred[:, 0])
@@ -101,7 +96,6 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
     plt.xlabel('frame')
     plt.ylabel('value')
     plt.legend(['test', 'pred'], loc='upper right')
-
     plt.figure()
     plt.plot(y_test[:, 2])
     plt.plot(y_pred[:, 2])
@@ -109,20 +103,16 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
     plt.xlabel('frame')
     plt.ylabel('value')
     plt.legend(['test', 'pred'], loc='upper right')
-
     plt.figure()
     plt.scatter(y_test[:, 1], y_pred[:, 1])
     plt.title('scatter-plot angle')
     plt.xlabel('thruth')
     plt.ylabel('pred')
-
     plt.figure()
     plt.scatter(y_test[:, 0], y_pred[:, 0])
     plt.title('scatter-plot distance')
     plt.ylabel('pred')
     plt.xlabel('thruth')
-
-
     plt.figure()
     plt.scatter(y_test[:, 2], y_pred[:, 2])
     plt.title('scatter-plot delta z')

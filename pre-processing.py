@@ -97,18 +97,9 @@ class DatasetCreator:
 
         scaled_fr = cv2.resize(reshaped_fr, (107, 60))
 
-        if self.flag == 'both':
-            r_t_h = matrix_method(self.b_position[i], self.b_orientation[i], self.h_position[i], self.h_orientation[i])
-            horizontal_angle = -math.degrees(math.atan2(r_t_h[1, 3], r_t_h[0, 3]))
-            label = (self.distances[i], horizontal_angle, self.delta_z[i])
-
-        elif self.flag == 'angle':
-            r_t_h = matrix_method(self.b_position[i], self.b_orientation[i], self.h_position[i], self.h_orientation[i])
-            horizontal_angle = -math.degrees(math.atan2(r_t_h[1, 3], r_t_h[0, 3]))
-            label = int(horizontal_angle >= 0)
-
-        else:  # should be both
-            label = self.distances[i]
+        r_t_h = matrix_method(self.b_position[i], self.b_orientation[i], self.h_position[i], self.h_orientation[i])
+        horizontal_angle = -math.degrees(math.atan2(r_t_h[1, 3], r_t_h[0, 3]))
+        label = (self.distances[i], horizontal_angle, self.delta_z[i])
 
         self.dataset.append((scaled_fr, label))
 
@@ -200,8 +191,6 @@ class VideoCreator:
         axll.plot(horizontal_angle, self.delta_z[i], 'go')
         # Drawing the plot
         canvas.draw()
-
-
 
         # some additional informations as arrows
         width, height = (fig.get_size_inches() * fig.get_dpi()).astype(dtype='int32')
