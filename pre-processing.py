@@ -56,8 +56,8 @@ bag_file_path = {
     "7": "./bagfiles/train/",
     "8": "./bagfiles/train/",
     "9": "./bagfiles/train/",
-    "10": "./bagfiles/validation/",
-    "11": "./bagfiles/validation/"
+    "10": "./bagfiles/train/",
+    "11": "./bagfiles/train/"
 }
 
 
@@ -70,19 +70,19 @@ class DatasetCreator:
         pass
 
     # Main method of the class, cycles through different nparrays and call other methods to compose the dataset.
-    def generate_data(self, flag, mean_dist, distances, b_orientation, b_position, frame_list, h_orientation, h_position, delta_z,f):
+    def generate_data(self, flag, distances, b_orientation, b_position, frame_list, h_orientation, h_position, delta_z, f):
         self.b_orientation = b_orientation
         self.b_position = b_position
         self.frame_list = frame_list
         self.h_orientation = h_orientation
         self.h_position = h_position
         self.flag = flag
-        self.mean_dist = mean_dist
         self.distances = distances
         self.delta_z = delta_z
         max_ = bag_end_cut[f[:-4]]
         min_ = bag_start_cut[f[:-4]]
         for i in tqdm.tqdm(range(min_, max_)):
+        # for i in tqdm.tqdm(range(100, 400)):
             self.data_aggregator(i)
 
     # append a frame with labels into the dataset file. Using a flag it is possible to select the labels to associate with the camera frame
@@ -104,19 +104,22 @@ class DatasetCreator:
         self.dataset.append((scaled_fr, label))
 
     # saves the dataset pickle file.
-    def save_dataset(self, flag_train):
+    def save_dataset(self, flag_train, title="wrong.pickle"):
         random.seed(42)
         # save
-        if flag_train:
+        if flag_train == "train":
             shuffled_dataset = list(self.dataset)
             np.random.shuffle(shuffled_dataset)
             train = pd.DataFrame(shuffled_dataset)
             train.to_pickle("./dataset/train.pickle")
-        else:
+        elif flag_train == "validation":
             shuffled_dataset = list(self.dataset)
             # no shuffling for validation
             val = pd.DataFrame(shuffled_dataset)
             val.to_pickle("./dataset/validation.pickle")
+        else:
+            val = pd.DataFrame(list(self.dataset))
+            val.to_pickle("./dataset/crossvalidation/" + title)
 
 
 # Class used for creating video to analyze new data from bag files.
@@ -182,7 +185,7 @@ class VideoCreator:
         axl.set_xlabel('Angle y')
         axl.set_ylabel('Distance')
         # axl.axis([-value_angle_axis, value_angle_axis, 0.1, 3], 'equal')
-        axl.plot(horizontal_angle, self.distances[i],'go')
+        axl.plot(horizontal_angle, self.distances[i], 'go')
 
         axll.set_xlim(-value_angle_axis, value_angle_axis)
         axll.set_ylim(-1, 1)
@@ -401,6 +404,24 @@ def bag_to_vid(f):
     print("\nvideo : " + str(f[:-4] + " completed"))
 
 
+def bag_to_pickle(f):
+    path = bag_file_path[f[:-4]]
+    print("\nreading bag: " + str(f))
+    datacr = DatasetCreator()
+    bag = rosbag.Bag(path + f)
+    b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions, distance_list, delta_z_list = data_pre_processing(bag)
+    datacr.generate_data(flag='both',
+                         distances=distance_list,
+                         b_orientation=b_sel_orientations,
+                         b_position=b_sel_positions,
+                         frame_list=frames_list,
+                         h_orientation=h_sel_orientations,
+                         h_position=h_sel_positions,
+                         delta_z=delta_z_list,
+                         f=f)
+    datacr.save_dataset(flag_train="cross", title=f[:-4] + ".pickle")
+
+
 # ------ Main ------
 def main():
     # Main selection
@@ -464,73 +485,82 @@ def main():
         #
         # dist_mean = np.mean(sum_dist)  # 1.437
 
-        dist_mean = 1.437
 
-        # create dataset, not parallelized.
+        scelta_2 = raw_input("Train/val or cross:[t/c]")
 
-        # train
-        datacr_train = DatasetCreator()
-        path = "./bagfiles/train/"
-        files = [f for f in os.listdir(path) if f[-4:] == '.bag']
-        if not files:
-            print('No bag files found!')
-            return None
+        if scelta_2 == "t":
+            # create dataset, not parallelized.
+            # train
+            datacr_train = DatasetCreator()
+            path = "./bagfiles/train/"
+            files = [f for f in os.listdir(path) if f[-4:] == '.bag']
+            if not files:
+                print('No bag files found!')
+                return None
 
-        for f in files:
-            bag = rosbag.Bag(path + f)
-            b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions, distance_list, delta_z_list = data_pre_processing(bag)
+            for f in files:
+                bag = rosbag.Bag(path + f)
+                b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions, distance_list, delta_z_list = data_pre_processing(bag)
 
-            datacr_train.generate_data(flag='both',
-                                       mean_dist=dist_mean,
-                                       distances=distance_list,
-                                       b_orientation=b_sel_orientations,
-                                       b_position=b_sel_positions,
-                                       frame_list=frames_list,
-                                       h_orientation=h_sel_orientations,
-                                       h_position=h_sel_positions,
-                                       delta_z=delta_z_list,
-                                       f=f)
-        datacr_train.save_dataset(flag_train=True)
+                datacr_train.generate_data(flag='both',
+                                           distances=distance_list,
+                                           b_orientation=b_sel_orientations,
+                                           b_position=b_sel_positions,
+                                           frame_list=frames_list,
+                                           h_orientation=h_sel_orientations,
+                                           h_position=h_sel_positions,
+                                           delta_z=delta_z_list,
+                                           f=f)
+            datacr_train.save_dataset(flag_train=True)
 
-        # validation
-        datacr_val = DatasetCreator()
-        path = "./bagfiles/validation/"
-        files = [f for f in os.listdir(path) if f[-4:] == '.bag']
-        if not files:
-            print('No bag files found!')
-            return None
+            # validation
+            datacr_val = DatasetCreator()
+            path = "./bagfiles/validation/"
+            files = [f for f in os.listdir(path) if f[-4:] == '.bag']
+            if not files:
+                print('No bag files found!')
+                return None
 
-        for f in files:
-            bag = rosbag.Bag(path + f)
-            b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions, distance_list, delta_z_list = data_pre_processing(bag)
-            datacr_val.generate_data(flag='both',
-                                     mean_dist=dist_mean,
-                                     distances=distance_list,
-                                     b_orientation=b_sel_orientations,
-                                     b_position=b_sel_positions,
-                                     frame_list=frames_list,
-                                     h_orientation=h_sel_orientations,
-                                     h_position=h_sel_positions,
-                                     delta_z=delta_z_list,
-                                     f=f)
-        datacr_val.save_dataset(flag_train=False)
+            for f in files:
+                bag = rosbag.Bag(path + f)
+                b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions, distance_list, delta_z_list = data_pre_processing(bag)
+                datacr_val.generate_data(flag='both',
+                                         distances=distance_list,
+                                         b_orientation=b_sel_orientations,
+                                         b_position=b_sel_positions,
+                                         frame_list=frames_list,
+                                         h_orientation=h_sel_orientations,
+                                         h_position=h_sel_positions,
+                                         delta_z=delta_z_list,
+                                         f=f)
+            datacr_val.save_dataset(flag_train="validation")
+        else:
+            path1 = "./bagfiles/train/"
+            path2 = "./bagfiles/validation/"
 
-        # path1 = "./bagfiles/train/"
-        # path2 = "./bagfiles/validation/"
-        #
-        # files1 = [f for f in os.listdir(path1) if f[-4:] == '.bag']
-        # if not files1:
-        #     print('No bag files found!')
-        #     return None
-        # files2 = [f for f in os.listdir(path2) if f[-4:] == '.bag']
-        # if not files2:
-        #     print('No bag files found!')
-        #     return None
-        # files = []
-        # for f_ in files1:
-        #     files.append(f_)
-        # for f_ in files2:
-        #     files.append(f_)
+            files1 = [f for f in os.listdir(path1) if f[-4:] == '.bag']
+            if not files1:
+                print('No bag files found!')
+                return None
+            files2 = [f for f in os.listdir(path2) if f[-4:] == '.bag']
+            if not files2:
+                print('No bag files found!')
+                return None
+            files = []
+            for f_ in files1:
+                files.append(f_)
+            for f_ in files2:
+                files.append(f_)
+
+            scelta_3 = raw_input("Single or multi:[s/m]")
+            if scelta_3 == 's':
+                for f in files:
+                    bag_to_pickle(f)
+            else:
+                pool = Pool(processes=4)
+                pool.map(bag_to_pickle, files[:])
+                pool.close()
+                pool.join()
 
 
 if __name__ == "__main__":
