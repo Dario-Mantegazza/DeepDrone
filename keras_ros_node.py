@@ -14,6 +14,8 @@ from keras.models import Sequential
 from numpy import array
 from sensor_msgs.msg import CompressedImage
 from geometry_msgs.msg import Twist
+from std_msgs.msg import Empty
+from nav_msgs.msg import Odometry
 
 # -------- some global variables -----------
 distance_tolerance = 0.5
@@ -65,8 +67,20 @@ class TrainedModel:
         self.rate = rospy.Rate(self.hz)
         self.PADCOLOR = [255, 255, 255]
         self.drone_im = cv2.resize(cv2.imread("drone.png"), (0, 0), fx=0.08, fy=0.08)
-        self.pub = rospy.Publisher("bebop/des_body_vel", Twist, queue_size=1)
-        self.kp = rospy.get_param("~kp", 1.0)
+        self.pub_vel = rospy.Publisher("bebop/des_body_vel", Twist, queue_size=1)
+        self.sub_stop = rospy.Subscriber("bebop/stop", Empty, self.stop_everything)
+        self.sub_odom = rospy.Subscriber("bebop/mocap_odom", Odometry, self.read_z_odom)
+        self.kp_ang_z = rospy.get_param("~kp_ang_z", -0.05)  # opencv sucks
+        self.kp_lin_z = rospy.get_param("~kp_lin_z", 1.0)
+        self.status = True
+        self.real_z = 0.0
+        self.target_z = 1.75
+
+    def stop_everything(self, msg):  # aggiungere msg anche se e' empty
+        self.status = False
+
+    def read_z_odom(self, msg):
+        self.real_z = msg.pose.pose.position.z
 
     # loads the model from the file and create a default graph, then defines the camera_feed with the callback.
     def setup(self):
@@ -83,9 +97,11 @@ class TrainedModel:
 
     def update_control(self, y):
         message = Twist()
-
-        message.angular.z = self.kp * y[1]
-        self.pub.publish(message)
+        # message.linear.z = self.kp_lin_z * (self.real_z)
+        message.linear.z = self.kp_lin_z * (self.target_z - self.real_z)
+        message.angular.z = self.kp_ang_z * y[1]
+        if self.status:
+            self.pub_vel.publish(message)
 
     # predict call back, recieves the message and produces an image representing the output
     def predict_(self, msg_data):
@@ -120,7 +136,8 @@ class TrainedModel:
         text_color = (0, 0, 0)
 
         cv2.putText(im_final, "On-line regressor", (900, 50), font, 0.5, text_color, 1, cv2.LINE_AA)
-        # 
+        cv2.putText(im_final, "Status:"+str(self.status), (900, 70), font, 0.5, text_color, 1, cv2.LINE_AA)
+        #
         # Top view
         triangle_color = (255, 229, 204)
         angle_deg = y_d[1]
