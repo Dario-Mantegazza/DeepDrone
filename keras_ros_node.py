@@ -71,10 +71,12 @@ class TrainedModel:
         self.sub_stop = rospy.Subscriber("bebop/stop", Empty, self.stop_everything)
         self.sub_odom = rospy.Subscriber("bebop/mocap_odom", Odometry, self.read_z_odom)
         self.kp_ang_z = rospy.get_param("~kp_ang_z", -0.05)  # opencv sucks
-        self.kp_lin_z = rospy.get_param("~kp_lin_z", 1.0)
+        self.kp_lin_z = rospy.get_param("~kp_lin_z", 1)
+        self.kp_lin_x = rospy.get_param("~kp_lin_x", 4)
         self.status = True
         self.real_z = 0.0
         self.target_z = 1.75
+        self.target_x = 1.437
 
     def stop_everything(self, msg):  # aggiungere msg anche se e' empty
         self.status = False
@@ -97,8 +99,9 @@ class TrainedModel:
 
     def update_control(self, y):
         message = Twist()
-        # message.linear.z = self.kp_lin_z * (self.real_z)
+        # message.linear.z = self.kp_lin_z * (y[2])
         message.linear.z = self.kp_lin_z * (self.target_z - self.real_z)
+        message.linear.x = self.kp_lin_x * (y[0] - self.target_x )
         message.angular.z = self.kp_ang_z * y[1]
         if self.status:
             self.pub_vel.publish(message)
