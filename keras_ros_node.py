@@ -13,6 +13,7 @@ from keras.backend import clear_session
 from keras.models import Sequential
 from numpy import array
 from sensor_msgs.msg import CompressedImage
+from geometry_msgs.msg import Twist
 
 # -------- some global variables -----------
 distance_tolerance = 0.5
@@ -59,11 +60,13 @@ class TrainedModel:
         self.model = Sequential()
         self.num_classes = 1
         self.pub_name = 'bebop'
-        self.hz = 30.0
+        self.hz = 10.0
         rospy.init_node('magic_node', anonymous=True)
         self.rate = rospy.Rate(self.hz)
         self.PADCOLOR = [255, 255, 255]
         self.drone_im = cv2.resize(cv2.imread("drone.png"), (0, 0), fx=0.08, fy=0.08)
+        self.pub = rospy.Publisher("bebop/des_body_vel", Twist, queue_size=1)
+        self.kp = rospy.get_param("~kp", 1.0)
 
     # loads the model from the file and create a default graph, then defines the camera_feed with the callback.
     def setup(self):
@@ -78,6 +81,12 @@ class TrainedModel:
         self.graph = tf.get_default_graph()
         self.camera_feed = rospy.Subscriber(self.pub_name + '/image_raw/compressed', CompressedImage, self.predict_)
 
+    def update_control(self, y):
+        message = Twist()
+
+        message.angular.z = self.kp * y[1]
+        self.pub.publish(message)
+
     # predict call back, recieves the message and produces an image representing the output
     def predict_(self, msg_data):
         data = 1 - array(Image.open(io.BytesIO(msg_data.data)))
@@ -86,6 +95,7 @@ class TrainedModel:
         x_data = np.reshape(x_data, (-1, 60, 107, 3))
         with self.graph.as_default():
             y_pred = self.model.predict(x_data)
+        self.update_control(y_pred[0])
         self.showResult(x_data[0], y_pred[0])
 
     # method that creates and show the image of the cnn results
