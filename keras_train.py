@@ -13,58 +13,110 @@ from model_creator import model_creator
 
 
 def plot_results(history, y_pred, y_test):
-    # plt.figure()
-    # plt.plot(history.history['mean_squared_error'])
-    # plt.plot(history.history['val_mean_squared_error'])
-    # plt.title('model MSE')
-    # plt.xlabel('epoch')
-    # plt.ylabel('error')
-    # plt.legend(['train', 'validation'], loc='upper right')
-    # plt.figure()
-    # plt.plot(history.history['loss'])
-    # plt.plot(history.history['val_loss'])
-    # plt.title('model loss')
-    # plt.xlabel('epoch')
-    # plt.ylabel('loss')
-    # plt.legend(['train', 'test'], loc='upper right')
-    plt.figure()
-    plt.plot(y_test[:, 1])
-    plt.plot(y_pred[:, 1])
-    plt.title('test-prediction angle')
-    plt.xlabel('frame')
-    plt.ylabel('value')
-    plt.legend(['test', 'pred'], loc='upper right')
-    plt.figure()
-    plt.plot(y_test[:, 0])
-    plt.plot(y_pred[:, 0])
-    plt.title('test-prediction distance')
-    plt.xlabel('frame')
-    plt.ylabel('value')
-    plt.legend(['test', 'pred'], loc='upper right')
-    plt.figure()
-    plt.plot(y_test[:, 2])
-    plt.plot(y_pred[:, 2])
-    plt.title('test-prediction delta z')
-    plt.xlabel('frame')
-    plt.ylabel('value')
-    plt.legend(['test', 'pred'], loc='upper right')
-    plt.figure()
-    plt.scatter(y_test[:, 1], y_pred[:, 1])
-    plt.title('scatter-plot angle')
-    plt.xlabel('thruth')
-    plt.ylabel('pred')
-    plt.figure()
-    plt.scatter(y_test[:, 0], y_pred[:, 0])
-    plt.title('scatter-plot distance')
-    plt.ylabel('pred')
-    plt.xlabel('thruth')
-    plt.figure()
-    plt.scatter(y_test[:, 2], y_pred[:, 2])
-    plt.title('scatter-plot delta z')
-    plt.ylabel('pred')
-    plt.xlabel('thruth')
-    plt.show()
+    #TODO equal axis
+    f_angle = plt.figure()
+    tp_angle = f_angle.add_subplot(2, 2, 1)
+    mse_angle = f_angle.add_subplot(2, 2, 2)
+    mae_angle = f_angle.add_subplot(2, 2, 3)
+    scatter_angle = f_angle.add_subplot(2, 2, 4)
 
+    tp_angle.plot(y_test[:, 1])
+    tp_angle.plot(y_pred[1])
+    tp_angle.set_title('test-prediction angle')
+    tp_angle.set_xlabel('frame')
+    tp_angle.set_ylabel('value')
+    tp_angle.legend(['test', 'pred'], loc='upper right')
+
+    mse_angle.plot(history.history['angle_pred_mean_squared_error'])
+    mse_angle.plot(history.history['val_angle_pred_mean_squared_error'])
+    mse_angle.set_title('angle MSE')
+    mse_angle.set_xlabel('epoch')
+    mse_angle.set_ylabel('error')
+    mse_angle.legend(['train', 'validation'], loc='upper right')
+
+    mae_angle.plot(history.history['angle_pred_loss'])
+    mae_angle.plot(history.history['val_angle_pred_loss'])
+    mae_angle.set_title('angle loss(MAE)')
+    mae_angle.set_xlabel('epoch')
+    mae_angle.set_ylabel('MAE')
+    mae_angle.legend(['train', 'test'], loc='upper right')
+
+    scatter_angle.scatter(y_test[:, 1], y_pred[1])
+    scatter_angle.set_title('scatter-plot angle')
+    scatter_angle.set_xlabel('thruth')
+    scatter_angle.set_ylabel('pred')
+    scatter_angle.set_xlim(-50, +50)
+    scatter_angle.set_ylim(-50, +50)
+
+    f_distance = plt.figure()
+    tp_distance = f_distance.add_subplot(2, 2, 1)
+    mse_distance = f_distance.add_subplot(2, 2, 2)
+    mae_distance = f_distance.add_subplot(2, 2, 3)
+    scatter_distance = f_distance.add_subplot(2, 2, 4)
+
+    tp_distance.plot(y_test[:, 0])
+    tp_distance.plot(y_pred[0])
+    tp_distance.set_title('test-prediction distance')
+    tp_distance.set_xlabel('frame')
+    tp_distance.set_ylabel('value')
+    tp_distance.legend(['test', 'pred'], loc='upper right')
+
+    mse_distance.plot(history.history['distance_pred_mean_squared_error'])
+    mse_distance.plot(history.history['val_distance_pred_mean_squared_error'])
+    mse_distance.set_title('distance MSE')
+    mse_distance.set_xlabel('epoch')
+    mse_distance.set_ylabel('error')
+    mse_distance.legend(['train', 'validation'], loc='upper right')
+
+    mae_distance.plot(history.history['distance_pred_loss'])
+    mae_distance.plot(history.history['val_distance_pred_loss'])
+    mae_distance.set_title('distance loss (MAE)')
+    mae_distance.set_xlabel('epoch')
+    mae_distance.set_ylabel('MAE')
+    mae_distance.legend(['train', 'test'], loc='upper right')
+
+    scatter_distance.scatter(y_test[:, 0], y_pred[0])
+    scatter_distance.set_title('scatter-plot distance')
+    scatter_distance.set_ylabel('pred')
+    scatter_distance.set_xlabel('thruth')
+    scatter_distance.set_xlim(0, +3)
+    scatter_distance.set_ylim(0, +3)
+
+    f_height = plt.figure()
+    tp_height = f_height.add_subplot(2, 2, 1)
+    mse_height = f_height.add_subplot(2, 2, 2)
+    mae_height = f_height.add_subplot(2, 2, 3)
+    scatter_height = f_height.add_subplot(2, 2, 4)
+
+    tp_height.plot(y_test[:, 2])
+    tp_height.plot(y_pred[2])
+    tp_height.set_title('test-prediction height')
+    tp_height.set_xlabel('frame')
+    tp_height.set_ylabel('value')
+    tp_height.legend(['test', 'pred'], loc='upper right')
+
+    mse_height.plot(history.history['height_pred_mean_squared_error'])
+    mse_height.plot(history.history['val_height_pred_mean_squared_error'])
+    mse_height.set_title('height MSE')
+    mse_height.set_xlabel('epoch')
+    mse_height.set_ylabel('error')
+    mse_height.legend(['train', 'validation'], loc='upper right')
+
+    mae_height.plot(history.history['height_pred_loss'])
+    mae_height.plot(history.history['val_height_pred_loss'])
+    mae_height.set_title('height loss (MAE)')
+    mae_height.set_xlabel('epoch')
+    mae_height.set_ylabel('MAE')
+    mae_height.legend(['train', 'test'], loc='upper right')
+
+    scatter_height.scatter(y_test[:, 2], y_pred[2])
+    scatter_height.set_title('scatter-plot height')
+    scatter_height.set_ylabel('pred')
+    scatter_height.set_xlabel('thruth')
+    scatter_height.set_xlim(-1, +1)
+    scatter_height.set_ylim(-1, +1)
+
+    plt.show()
 
 # class that is used to create video
 class KerasVideoCreator:
@@ -100,7 +152,7 @@ class KerasVideoCreator:
         # Setting some variables
         font = cv2.FONT_HERSHEY_DUPLEX
         text_color = (0, 0, 0)
-        y_d = self.preds[i]
+        y_d = [self.preds[0][i],self.preds[1][i],self.preds[2][i]]
         l_d = self.labels[i]
         cv2.putText(im_final, "Frame: %s" % i, (900, 50), font, 0.5, text_color, 1, cv2.LINE_AA)
 
@@ -173,8 +225,8 @@ class KerasVideoCreator:
         cv2.circle(im_final, center=gt_center, radius=5, color=gt_color, thickness=2)
 
         # draw Pred
-        pr_center = (int((t_x + scale_factor * (math.sin(math.radians(self.preds[i, 1])) * self.preds[i, 0]))),
-                     int((t_y - scale_factor * (math.cos(math.radians(self.preds[i, 1])) * self.preds[i, 0]))))
+        pr_center = (int((t_x + scale_factor * (math.sin(math.radians(self.preds[1][i])) * self.preds[0][i]))),
+                     int((t_y - scale_factor * (math.cos(math.radians(self.preds[1][i])) * self.preds[0][i]))))
         cv2.circle(im_final, center=pr_center, radius=5, color=pr_color, thickness=5)
 
         # draw height
@@ -196,7 +248,7 @@ class KerasVideoCreator:
         gt_h_center = (h_c_x,
                        int((h_c_y - h_scale_factor * self.labels[i, 2])))
         pr_h_center = (h_c_x,
-                       int((h_c_y - h_scale_factor * self.preds[i, 2])))
+                       int((h_c_y - h_scale_factor * self.preds[2][i])))
         cv2.circle(im_final, center=gt_h_center, radius=5, color=gt_color, thickness=2)
         cv2.circle(im_final, center=pr_h_center, radius=5, color=pr_color, thickness=5)
         self.video_writer.write(im_final)
@@ -217,7 +269,7 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
     model = model_creator(num_classes)
     batch_per_epoch = math.ceil(x_test.shape[0] / batch_size)
     gen = generator(x_train, y_train, batch_size)
-    history = model.fit_generator(generator=gen, epochs=epochs, steps_per_epoch=batch_per_epoch)
+    history = model.fit_generator(generator=gen, validation_data=(x_test, [y_test[:, 0], y_test[:, 1], y_test[:, 2]]), epochs=epochs, steps_per_epoch=batch_per_epoch)
 
     # Save model and weights    model = model_creator(num_classes)
     if not os.path.isdir(save_dir):
@@ -236,22 +288,23 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
     print('Saved trained weights at %s ' % w_path)
 
     # Score trained model.
-    scores = model.evaluate(x_test, y_test, verbose=1)
+    #TODO redo scores prints
+    scores = model.evaluate(x_test, [y_test[:, 0], y_test[:, 1], y_test[:, 2]], verbose=1)
     y_pred = model.predict(x_test)
     print('Test loss:', scores[0])
     print('Test mse:', scores[1])
+    #
+    # r2 = metrics.r2_score(y_test, y_pred)
+    # print('Test r2:', r2)
 
-    r2 = metrics.r2_score(y_test, y_pred)
-    print('Test r2:', r2)
+    # mean_y = np.mean(y_test)
+    # mean_array = np.full(y_test.shape, mean_y)
+    # mae = metrics.mean_absolute_error(y_test, mean_array)
+    # print("----- mean value regressor metric -----")
+    # print('Mean mae:', mae)
 
-    mean_y = np.mean(y_test)
-    mean_array = np.full(y_test.shape, mean_y)
-    mae = metrics.mean_absolute_error(y_test, mean_array)
-    print("----- mean value regressor metric -----")
-    print('Mean mae:', mae)
-
-    vidcr_test = KerasVideoCreator(x_test=x_test, labels=y_test, preds=y_pred, title="./video/test_result.avi")
-    vidcr_test.video_plot_creator()
+    # vidcr_test = KerasVideoCreator(x_test=x_test, labels=y_test, preds=y_pred, title="./video/test_result.avi")
+    # vidcr_test.video_plot_creator()
 
     # show some plots
     plot_results(history, y_pred, y_test)
@@ -265,16 +318,13 @@ def data_augmentor(frame, label, noise=False):
 
 
 def generator(features, labels, batch_size):
-    # Create empty arrays to contain batch of features and labels#
-    # batch_features = np.zeros((batch_size, 64, 64, 3))
-    # batch_labels = np.zeros((batch_size, 1))
     while True:
         indexes = np.random.choice(np.arange(0, features.shape[0]), batch_size)
         batch_features = features[indexes]
         batch_labels = labels[indexes]
         for i in range(0, batch_features.shape[0]):
             batch_features[i], batch_labels[i] = data_augmentor(batch_features[i], batch_labels[i])
-        yield batch_features, batch_labels
+        yield batch_features, [batch_labels[:, 0], batch_labels[:, 1], batch_labels[:, 2]]
 
 
 # ------------------- Main ----------------------
@@ -284,7 +334,7 @@ def main():
 
     batch_size = 64
     num_classes = 3
-    epochs = 64
+    epochs = 50
 
     save_dir = os.path.join(os.getcwd(), 'saved_models')
     model_name = 'keras_bebop_trained_model.h5'
