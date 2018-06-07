@@ -1,7 +1,9 @@
-import numpy as np
-from matplotlib import pyplot as plt
+import math
+
 import cv2
+import numpy as np
 import tqdm
+from matplotlib import pyplot as plt
 
 
 # class that is used to create video
