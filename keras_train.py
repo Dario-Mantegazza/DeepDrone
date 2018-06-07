@@ -9,11 +9,11 @@ import tqdm
 from matplotlib import pyplot as plt
 from sklearn import metrics
 
-from model_creator import model_creator
+from model_creator import model_creator, generator
+# from model_creator import model_creator
 
 
 def plot_results(history, y_pred, y_test):
-    #TODO equal axis
     f_angle = plt.figure()
     tp_angle = f_angle.add_subplot(2, 2, 1)
     mse_angle = f_angle.add_subplot(2, 2, 2)
@@ -118,6 +118,7 @@ def plot_results(history, y_pred, y_test):
 
     plt.show()
 
+
 # class that is used to create video
 class KerasVideoCreator:
     def __init__(self, x_test, labels, preds, title="Validation.avi"):
@@ -152,7 +153,7 @@ class KerasVideoCreator:
         # Setting some variables
         font = cv2.FONT_HERSHEY_DUPLEX
         text_color = (0, 0, 0)
-        y_d = [self.preds[0][i],self.preds[1][i],self.preds[2][i]]
+        y_d = [self.preds[0][i], self.preds[1][i], self.preds[2][i]]
         l_d = self.labels[i]
         cv2.putText(im_final, "Frame: %s" % i, (900, 50), font, 0.5, text_color, 1, cv2.LINE_AA)
 
@@ -267,7 +268,7 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
     x_test = x_test.astype('float32')
 
     model = model_creator(num_classes)
-    batch_per_epoch = math.ceil(x_test.shape[0] / batch_size)
+    batch_per_epoch = math.ceil(x_train.shape[0] / batch_size)
     gen = generator(x_train, y_train, batch_size)
     history = model.fit_generator(generator=gen, validation_data=(x_test, [y_test[:, 0], y_test[:, 1], y_test[:, 2]]), epochs=epochs, steps_per_epoch=batch_per_epoch)
 
@@ -288,7 +289,7 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
     print('Saved trained weights at %s ' % w_path)
 
     # Score trained model.
-    #TODO redo scores prints
+    # TODO redo scores prints
     scores = model.evaluate(x_test, [y_test[:, 0], y_test[:, 1], y_test[:, 2]], verbose=1)
     y_pred = model.predict(x_test)
     print('Test loss:', scores[0])
@@ -303,28 +304,11 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
     # print("----- mean value regressor metric -----")
     # print('Mean mae:', mae)
 
-    # vidcr_test = KerasVideoCreator(x_test=x_test, labels=y_test, preds=y_pred, title="./video/test_result.avi")
-    # vidcr_test.video_plot_creator()
+    vidcr_test = KerasVideoCreator(x_test=x_test, labels=y_test, preds=y_pred, title="./video/test_result.avi")
+    vidcr_test.video_plot_creator()
 
     # show some plots
     plot_results(history, y_pred, y_test)
-
-
-def data_augmentor(frame, label, noise=False):
-    if np.random.choice([True, False]):
-        frame = np.fliplr(frame)
-        label[1] = -label[1]
-    return frame, label
-
-
-def generator(features, labels, batch_size):
-    while True:
-        indexes = np.random.choice(np.arange(0, features.shape[0]), batch_size)
-        batch_features = features[indexes]
-        batch_labels = labels[indexes]
-        for i in range(0, batch_features.shape[0]):
-            batch_features[i], batch_labels[i] = data_augmentor(batch_features[i], batch_labels[i])
-        yield batch_features, [batch_labels[:, 0], batch_labels[:, 1], batch_labels[:, 2]]
 
 
 # ------------------- Main ----------------------

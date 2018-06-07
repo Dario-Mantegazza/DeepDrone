@@ -62,11 +62,6 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
 
     print('Saved trained model at %s ' % model_path)
     print('Saved trained weights at %s ' % w_path)
-    #
-    #
-    # clear_session()
-    # del model  # deletes the existing model
-    # model = keras.models.load_model("./saved_models/keras_bebop_trained_model.h5")
 
     # Score trained model.
     scores = model.evaluate(x_test, y_test, verbose=1)

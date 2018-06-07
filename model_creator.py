@@ -40,6 +40,22 @@ def create_sequential():
     model.add(Activation('relu'))
     return model
 
+def data_augmentor(frame, label, noise=False):
+    if np.random.choice([True, False]):
+        frame = np.fliplr(frame)
+        label[1] = -label[1]
+    return frame, label
+
+
+def generator(features, labels, batch_size):
+    while True:
+        indexes = np.random.choice(np.arange(0, features.shape[0]), batch_size)
+        batch_features = features[indexes]
+        batch_labels = labels[indexes]
+        for i in range(0, batch_features.shape[0]):
+            batch_features[i], batch_labels[i] = data_augmentor(batch_features[i], batch_labels[i])
+        yield batch_features, [batch_labels[:, 0], batch_labels[:, 1], batch_labels[:, 2]]
+
 # from keras.models import Model
 # from keras.layers import *
 #

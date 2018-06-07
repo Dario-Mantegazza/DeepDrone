@@ -17,6 +17,7 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.ticker import MultipleLocator
 from scipy.spatial import distance
 from transforms3d.derivations.quaternions import quat2mat
+import rosbag_pandas
 
 # ------ Global Dictionaries ------
 
@@ -70,13 +71,12 @@ class DatasetCreator:
         pass
 
     # Main method of the class, cycles through different nparrays and call other methods to compose the dataset.
-    def generate_data(self, flag, distances, b_orientation, b_position, frame_list, h_orientation, h_position, delta_z, f):
+    def generate_data(self, distances, b_orientation, b_position, frame_list, h_orientation, h_position, delta_z, f):
         self.b_orientation = b_orientation
         self.b_position = b_position
         self.frame_list = frame_list
         self.h_orientation = h_orientation
         self.h_position = h_position
-        self.flag = flag
         self.distances = distances
         self.delta_z = delta_z
         max_ = bag_end_cut[f[:-4]]
@@ -109,7 +109,7 @@ class DatasetCreator:
         # save
         if flag_train == "train":
             shuffled_dataset = list(self.dataset)
-            np.random.shuffle(shuffled_dataset)
+            # np.random.shuffle(shuffled_dataset)
             train = pd.DataFrame(shuffled_dataset)
             train.to_pickle("./dataset/train.pickle")
         elif flag_train == "validation":
@@ -117,10 +117,12 @@ class DatasetCreator:
             # no shuffling for validation
             val = pd.DataFrame(shuffled_dataset)
             val.to_pickle("./dataset/validation.pickle")
-        else:
+        elif flag_train == "cross":
             val = pd.DataFrame(list(self.dataset))
             val.to_pickle("./dataset/crossvalidation/" + title)
-
+        else:
+            print("ERROR in FLAG TRAIN")
+            return None
 
 # Class used for creating video to analyze new data from bag files.
 class VideoCreator:
@@ -410,8 +412,7 @@ def bag_to_pickle(f):
     datacr = DatasetCreator()
     bag = rosbag.Bag(path + f)
     b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions, distance_list, delta_z_list = data_pre_processing(bag)
-    datacr.generate_data(flag='both',
-                         distances=distance_list,
+    datacr.generate_data(distances=distance_list,
                          b_orientation=b_sel_orientations,
                          b_position=b_sel_positions,
                          frame_list=frames_list,
@@ -502,8 +503,7 @@ def main():
                 bag = rosbag.Bag(path + f)
                 b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions, distance_list, delta_z_list = data_pre_processing(bag)
 
-                datacr_train.generate_data(flag='both',
-                                           distances=distance_list,
+                datacr_train.generate_data(distances=distance_list,
                                            b_orientation=b_sel_orientations,
                                            b_position=b_sel_positions,
                                            frame_list=frames_list,
@@ -511,7 +511,7 @@ def main():
                                            h_position=h_sel_positions,
                                            delta_z=delta_z_list,
                                            f=f)
-            datacr_train.save_dataset(flag_train=True)
+            datacr_train.save_dataset(flag_train="train")
 
             # validation
             datacr_val = DatasetCreator()
@@ -524,8 +524,7 @@ def main():
             for f in files:
                 bag = rosbag.Bag(path + f)
                 b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions, distance_list, delta_z_list = data_pre_processing(bag)
-                datacr_val.generate_data(flag='both',
-                                         distances=distance_list,
+                datacr_val.generate_data(distances=distance_list,
                                          b_orientation=b_sel_orientations,
                                          b_position=b_sel_positions,
                                          frame_list=frames_list,
