@@ -40,6 +40,7 @@ def create_sequential():
     model.add(Activation('relu'))
     return model
 
+
 def data_augmentor(frame, label, noise=False):
     if np.random.choice([True, False]):
         frame = np.fliplr(frame)

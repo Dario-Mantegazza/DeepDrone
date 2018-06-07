@@ -1,15 +1,15 @@
 import math
 import os
-import random
 
 import cv2
 import numpy as np
 import pandas as pd
 import tqdm
 from matplotlib import pyplot as plt
-from sklearn import metrics
 
 from model_creator import model_creator, generator
+
+
 # from model_creator import model_creator
 
 
