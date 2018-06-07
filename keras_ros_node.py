@@ -119,7 +119,7 @@ class TrainedModel:
 
     # method that creates and show the image of the cnn results
     def showResult(self, frame, y_d):
-        img_f = 1 - frame.astype(np.uint8)
+        img_f = 255 - frame.astype(np.uint8)
         scaled = cv2.resize(img_f, (0, 0), fx=4, fy=4)
         vert_p = int((480 - scaled.shape[0]) / 2)
 

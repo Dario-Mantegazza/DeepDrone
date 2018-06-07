@@ -135,7 +135,7 @@ class KerasVideoCreator:
     # function used to compose the frame
     def frame_composer(self, i):
         # Adjusting the image
-        img_f = 1 - (self.frame_list[i]).astype(np.uint8)
+        img_f = 255 - (self.frame_list[i]).astype(np.uint8)
         scaled = cv2.resize(img_f, (0, 0), fx=4, fy=4)
         vert_p = int((480 - scaled.shape[0]) / 2)
 
@@ -324,13 +324,13 @@ def main():
     model_name = 'keras_bebop_trained_model.h5'
 
     # The data, split between train and test sets:
-    x_train = 1 - train[:, 0]  # otherwise is inverted
+    x_train = 255 - train[:, 0]  # otherwise is inverted
     x_train = np.vstack(x_train[:]).astype(np.float)
     x_train = np.reshape(x_train, (-1, 60, 107, 3))
     y_train = train[:, 1]
     y_train = np.asarray([np.asarray(sublist) for sublist in y_train])
 
-    x_test = 1 - validation[:, 0]
+    x_test = 255 - validation[:, 0]
     x_test = np.vstack(x_test[:]).astype(np.float)
     x_test = np.reshape(x_test, (-1, 60, 107, 3))
     y_test = validation[:, 1]
