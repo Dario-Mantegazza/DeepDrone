@@ -30,3 +30,7 @@ mirko\.py
 dataset/
 
 *.pickle
+
+saves/
+
+*.pyc
