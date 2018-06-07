@@ -267,7 +267,7 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
     x_train = x_train.astype('float32')
     x_test = x_test.astype('float32')
 
-    model = model_creator(num_classes)
+    model,_,_ = model_creator(num_classes)
     batch_per_epoch = math.ceil(x_train.shape[0] / batch_size)
     gen = generator(x_train, y_train, batch_size)
     history = model.fit_generator(generator=gen, validation_data=(x_test, [y_test[:, 0], y_test[:, 1], y_test[:, 2]]), epochs=epochs, steps_per_epoch=batch_per_epoch)
@@ -277,16 +277,7 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
         os.makedirs(save_dir)
     model_path = os.path.join(save_dir, model_name)
     model.save(model_path)
-
-    w_save_dir = os.path.join(os.getcwd(), 'saved_weights')
-    w_name = 'keras_bebop_trained_weights.h5'
-    if not os.path.isdir(w_save_dir):
-        os.makedirs(w_save_dir)
-    w_path = os.path.join(w_save_dir, w_name)
-    model.save_weights(w_path)
-
     print('Saved trained model at %s ' % model_path)
-    print('Saved trained weights at %s ' % w_path)
 
     # Score trained model.
     # TODO redo scores prints

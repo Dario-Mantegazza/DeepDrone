@@ -1,14 +1,15 @@
 import math
 import os
+from datetime import datetime
 
 import cv2
 import numpy as np
 import pandas as pd
 import tqdm
-from matplotlib import pyplot as plt
+from keras.utils import plot_model
 
+from crossvalidation_plot_data import history_data_plot_crossvalidation, plot_results
 from model_creator import model_creator, generator
-from time import gmtime, strftime
 
 pickle_sections = {
     "1": 1,
@@ -23,116 +24,6 @@ pickle_sections = {
     "10": 3,
     "11": 4
 }
-
-
-def plot_results(history, y_pred, y_test,save_dir,i):
-    f_angle = plt.figure()
-    tp_angle = f_angle.add_subplot(2, 2, 1)
-    mse_angle = f_angle.add_subplot(2, 2, 2)
-    mae_angle = f_angle.add_subplot(2, 2, 3)
-    scatter_angle = f_angle.add_subplot(2, 2, 4)
-
-    tp_angle.plot(y_test[:, 1])
-    tp_angle.plot(y_pred[1])
-    tp_angle.set_title('test-prediction angle')
-    tp_angle.set_xlabel('frame')
-    tp_angle.set_ylabel('value')
-    tp_angle.legend(['test', 'pred'], loc='upper right')
-
-    mse_angle.plot(history.history['angle_pred_mean_squared_error'])
-    mse_angle.plot(history.history['val_angle_pred_mean_squared_error'])
-    mse_angle.set_title('angle MSE')
-    mse_angle.set_xlabel('epoch')
-    mse_angle.set_ylabel('error')
-    mse_angle.legend(['train', 'validation'], loc='upper right')
-
-    mae_angle.plot(history.history['angle_pred_loss'])
-    mae_angle.plot(history.history['val_angle_pred_loss'])
-    mae_angle.set_title('angle loss(MAE)')
-    mae_angle.set_xlabel('epoch')
-    mae_angle.set_ylabel('MAE')
-    mae_angle.legend(['train', 'test'], loc='upper right')
-
-    scatter_angle.scatter(y_test[:, 1], y_pred[1])
-    scatter_angle.set_title('scatter-plot angle')
-    scatter_angle.set_xlabel('thruth')
-    scatter_angle.set_ylabel('pred')
-    scatter_angle.set_xlim(-50, +50)
-    scatter_angle.set_ylim(-50, +50)
-
-    f_angle.savefig(save_dir+"/result_model_"+str(i)+"/angle.png",dpi=100)
-
-    f_distance = plt.figure()
-    tp_distance = f_distance.add_subplot(2, 2, 1)
-    mse_distance = f_distance.add_subplot(2, 2, 2)
-    mae_distance = f_distance.add_subplot(2, 2, 3)
-    scatter_distance = f_distance.add_subplot(2, 2, 4)
-
-    tp_distance.plot(y_test[:, 0])
-    tp_distance.plot(y_pred[0])
-    tp_distance.set_title('test-prediction distance')
-    tp_distance.set_xlabel('frame')
-    tp_distance.set_ylabel('value')
-    tp_distance.legend(['test', 'pred'], loc='upper right')
-
-    mse_distance.plot(history.history['distance_pred_mean_squared_error'])
-    mse_distance.plot(history.history['val_distance_pred_mean_squared_error'])
-    mse_distance.set_title('distance MSE')
-    mse_distance.set_xlabel('epoch')
-    mse_distance.set_ylabel('error')
-    mse_distance.legend(['train', 'validation'], loc='upper right')
-
-    mae_distance.plot(history.history['distance_pred_loss'])
-    mae_distance.plot(history.history['val_distance_pred_loss'])
-    mae_distance.set_title('distance loss (MAE)')
-    mae_distance.set_xlabel('epoch')
-    mae_distance.set_ylabel('MAE')
-    mae_distance.legend(['train', 'test'], loc='upper right')
-
-    scatter_distance.scatter(y_test[:, 0], y_pred[0])
-    scatter_distance.set_title('scatter-plot distance')
-    scatter_distance.set_ylabel('pred')
-    scatter_distance.set_xlabel('thruth')
-    scatter_distance.set_xlim(0, +3)
-    scatter_distance.set_ylim(0, +3)
-    f_distance.savefig(save_dir+"/result_model_"+str(i)+"/distance.png",dpi=100)
-
-    f_height = plt.figure()
-    tp_height = f_height.add_subplot(2, 2, 1)
-    mse_height = f_height.add_subplot(2, 2, 2)
-    mae_height = f_height.add_subplot(2, 2, 3)
-    scatter_height = f_height.add_subplot(2, 2, 4)
-
-    tp_height.plot(y_test[:, 2])
-    tp_height.plot(y_pred[2])
-    tp_height.set_title('test-prediction height')
-    tp_height.set_xlabel('frame')
-    tp_height.set_ylabel('value')
-    tp_height.legend(['test', 'pred'], loc='upper right')
-
-    mse_height.plot(history.history['height_pred_mean_squared_error'])
-    mse_height.plot(history.history['val_height_pred_mean_squared_error'])
-    mse_height.set_title('height MSE')
-    mse_height.set_xlabel('epoch')
-    mse_height.set_ylabel('error')
-    mse_height.legend(['train', 'validation'], loc='upper right')
-
-    mae_height.plot(history.history['height_pred_loss'])
-    mae_height.plot(history.history['val_height_pred_loss'])
-    mae_height.set_title('height loss (MAE)')
-    mae_height.set_xlabel('epoch')
-    mae_height.set_ylabel('MAE')
-    mae_height.legend(['train', 'test'], loc='upper right')
-
-    scatter_height.scatter(y_test[:, 2], y_pred[2])
-    scatter_height.set_title('scatter-plot height')
-    scatter_height.set_ylabel('pred')
-    scatter_height.set_xlabel('thruth')
-    scatter_height.set_xlim(-1, +1)
-    scatter_height.set_ylim(-1, +1)
-    f_height.savefig(save_dir+"/result_model_"+str(i)+"/height.png", dpi=100)
-
-    # plt.show()
 
 
 # class that is used to create video
@@ -279,15 +170,26 @@ class KerasVideoCreator:
 
 
 # Cnn method contains the definition, training, testing and plotting of the CNN model and dataset
-def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_train, y_test, y_train,i):
+def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_train, y_test, y_train, i):
+    print("k-fold:" + str(i))
     x_train = x_train.astype('float32')
     x_test = x_test.astype('float32')
 
-    model = model_creator(num_classes,show_summary=True)
-    summary = str(model.summary())
-    with open(save_dir+"/model_"+str(i)+"_info.txt", "w+") as outfile:
-        outfile.write(summary)
-        outfile.close()
+    model, lr, decay = model_creator(num_classes, show_summary=False)
+    if i == 0:
+        plot_model(model.layers[1], to_file=save_dir + '/model_seq.png')
+        plot_model(model, to_file=save_dir + '/model_out.png')
+        with open(save_dir + "/model_info.txt", "w+") as outfile:
+            outfile.write("Hyperparameters\n")
+            outfile.write("== == == == == == == == == == == ==\n")
+            outfile.write("learning_rate:" + str(lr) + "\n")
+            outfile.write("decay:" + str(decay) + "\n")
+            outfile.write("batch size:" + str(batch_size) + "\n")
+            outfile.write("epochs:" + str(epochs) + "\n")
+            outfile.write("== == == == == == == == == == == ==\n")
+            model.layers[1].summary(print_fn=lambda x: outfile.write(x + '\n'))
+            model.summary(print_fn=lambda x: outfile.write(x + '\n'))
+            outfile.close()
     batch_per_epoch = math.ceil(x_train.shape[0] / batch_size)
     gen = generator(x_train, y_train, batch_size)
     history = model.fit_generator(generator=gen, validation_data=(x_test, [y_test[:, 0], y_test[:, 1], y_test[:, 2]]), epochs=epochs, steps_per_epoch=batch_per_epoch)
@@ -314,17 +216,16 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
     # print("----- mean value regressor metric -----")
     # print('Mean mae:', mae)
 
-    vidcr_test = KerasVideoCreator(x_test=x_test, labels=y_test, preds=y_pred, title=save_dir+"/result_model_"+str(i)+"/test_result.avi")
-    vidcr_test.video_plot_creator()
+    # vidcr_test = KerasVideoCreator(x_test=x_test, labels=y_test, preds=y_pred, title=save_dir + "/result_model_" + str(i) + "/test_result.avi")
+    # vidcr_test.video_plot_creator()
 
     # show some plots
-    plot_results(history, y_pred, y_test,save_dir,i)
+    plot_results(history, y_pred, y_test, save_dir, i)
+    return history.history
 
 
-def crossValidation():
-    # strftime("%Y-%m-%d-%H-%M-%S", gmtime())
-    k_fold = 5
-    save_path = './saves/' + strftime("%Y-%m-%d-%H-%M-%S", gmtime())
+def crossValidation(k_fold, batch_size, num_classes, epochs):
+    save_path = 'saves/' + datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
     try:
         os.makedirs(save_path)
     except OSError:
@@ -332,20 +233,20 @@ def crossValidation():
             raise
     for i in range(k_fold):
         try:
-            os.makedirs(save_path+"/result_model_"+str(i))
+            os.makedirs(save_path + "/result_model_" + str(i))
         except OSError:
-            if not os.path.isdir(save_path+"/result_model_"+str(i)):
+            if not os.path.isdir(save_path + "/result_model_" + str(i)):
                 raise
     path = "./dataset/crossvalidation/"
     files = [f for f in os.listdir(path) if f[-7:] == '.pickle']
-    batch_size = 64
-    num_classes = 3
-    epochs = 50
+
+    history_list = []
+    save_dir = os.path.join(os.getcwd(), save_path)
     if not files:
         print('No bag files found!')
         return None
+    # for i in tqdm.tqdm(range(0, k_fold)):
     for i in range(k_fold):  # test selection,
-
         x_test_list = []
         x_train_list = []
 
@@ -358,11 +259,9 @@ def crossValidation():
 
             else:
                 x_train_list.append(pd.read_pickle("./dataset/crossvalidation/" + f))
-
         train = pd.concat(x_train_list).values
         validation = pd.concat(x_test_list).values
-        save_dir = os.path.join(os.getcwd(), save_path)
-        model_name = 'keras_bebop_trained_model_'+str(i)+'.h5'
+        model_name = 'keras_bebop_trained_model_' + str(i) + '.h5'
         x_train = 255 - train[:, 0]  # otherwise is inverted
         x_train = np.vstack(x_train[:]).astype(np.float)
         x_train = np.reshape(x_train, (-1, 60, 107, 3))
@@ -376,12 +275,18 @@ def crossValidation():
         print('x_train shape: ' + str(x_train.shape))
         print('train samples: ' + str(x_train.shape[0]))
         print('test samples:  ' + str(x_test.shape[0]))
-        CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_train, y_test, y_train,i)
+        history_list.append(CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_train, y_test, y_train, i))
+
+    history_data_plot_crossvalidation(history_list, save_dir)
 
 
 # ------------------- Main ----------------------
 def main():
-    crossValidation()
+    k_fold = 5
+    batch_size = 64
+    num_classes = 3
+    epochs = 10
+    crossValidation(k_fold, batch_size, num_classes, epochs)
 
 
 if __name__ == "__main__":
