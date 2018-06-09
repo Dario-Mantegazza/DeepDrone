@@ -37,8 +37,8 @@ pickle_sections = {
 # Cnn method contains the definition, training, testing and plotting of the CNN model and dataset
 def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_train, y_test, y_train, i):
     print("k-fold:" + str(i))
-    x_train = x_train.astype('float32')
-    x_test = x_test.astype('float32')
+    # x_train = x_train.astype('float32')
+    # x_test = x_test.astype('float32')
 
     model, lr, decay = model_creator(num_classes, show_summary=False)
     if i == 0:
@@ -119,12 +119,12 @@ def crossValidation(k_fold, batch_size, num_classes, epochs):
         validation = pd.concat(x_test_list).values
         model_name = 'keras_bebop_trained_model_' + str(i) + '.h5'
         x_train = 255 - train[:, 0]  # otherwise is inverted
-        x_train = np.vstack(x_train[:]).astype(np.float)
+        x_train = np.vstack(x_train[:]).astype(np.float32)
         x_train = np.reshape(x_train, (-1, 60, 107, 3))
         y_train = train[:, 1]
         y_train = np.asarray([np.asarray(sublist) for sublist in y_train])
         x_test = 255 - validation[:, 0]
-        x_test = np.vstack(x_test[:]).astype(np.float)
+        x_test = np.vstack(x_test[:]).astype(np.float32)
         x_test = np.reshape(x_test, (-1, 60, 107, 3))
         y_test = validation[:, 1]
         y_test = np.asarray([np.asarray(sublist) for sublist in y_test])
@@ -141,7 +141,7 @@ def main():
     k_fold = 5
     batch_size = 64
     num_classes = 3
-    epochs = 10
+    epochs = 30
     crossValidation(k_fold, batch_size, num_classes, epochs)
 
 
