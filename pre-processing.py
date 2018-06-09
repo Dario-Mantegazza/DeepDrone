@@ -58,7 +58,15 @@ bag_file_path = {
     "8": "./bagfiles/train/",
     "9": "./bagfiles/train/",
     "10": "./bagfiles/train/",
-    "11": "./bagfiles/train/"
+    "11": "./bagfiles/train/",
+    "12": "./bagfiles/new/",
+    "13": "./bagfiles/new/",
+    "14": "./bagfiles/new/",
+    "15": "./bagfiles/new/",
+    "16": "./bagfiles/new/",
+    "17": "./bagfiles/new/",
+    "18": "./bagfiles/new/",
+    "19": "./bagfiles/new/"
 }
 
 
@@ -82,7 +90,7 @@ class DatasetCreator:
         max_ = bag_end_cut[f[:-4]]
         min_ = bag_start_cut[f[:-4]]
         for i in tqdm.tqdm(range(min_, max_)):
-        # for i in tqdm.tqdm(range(100, 400)):
+            # for i in tqdm.tqdm(range(100, 400)):
             self.data_aggregator(i)
 
     # append a frame with labels into the dataset file. Using a flag it is possible to select the labels to associate with the camera frame
@@ -123,6 +131,7 @@ class DatasetCreator:
         else:
             print("ERROR in FLAG TRAIN")
             return None
+
 
 # Class used for creating video to analyze new data from bag files.
 class VideoCreator:
@@ -221,8 +230,8 @@ class VideoCreator:
     # composing the video
     def video_plot_creator(self):
         max_ = len(self.frame_list)
-        # for i in tqdm.tqdm(range(0, max_)):
-        for i in tqdm.tqdm(range(100, 400)):
+        for i in tqdm.tqdm(range(0, max_)):
+        # for i in tqdm.tqdm(range(100, 400)):
             self.plotting_function(i)
         self.video_writer.release()
         cv2.destroyAllWindows()
@@ -391,8 +400,8 @@ def data_pre_processing(bag):
 def bag_to_vid(f):
     path = bag_file_path[f[:-4]]
     print("\nreading bag: " + str(f))
-    bag = rosbag.Bag(path + f)
-    b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions, distance_list, delta_z_list = data_pre_processing(bag)
+    with rosbag.Bag(path + f) as bag:
+        b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions, distance_list, delta_z_list = data_pre_processing(bag)
     vidcr = VideoCreator(b_orientation=b_sel_orientations,
                          distances=distance_list,
                          b_position=b_sel_positions,
@@ -410,8 +419,8 @@ def bag_to_pickle(f):
     path = bag_file_path[f[:-4]]
     print("\nreading bag: " + str(f))
     datacr = DatasetCreator()
-    bag = rosbag.Bag(path + f)
-    b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions, distance_list, delta_z_list = data_pre_processing(bag)
+    with rosbag.Bag(path + f) as bag:
+        b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions, distance_list, delta_z_list = data_pre_processing(bag)
     datacr.generate_data(distances=distance_list,
                          b_orientation=b_sel_orientations,
                          b_position=b_sel_positions,
@@ -432,28 +441,36 @@ def main():
     if scelta == "v":
         path1 = "./bagfiles/train/"
         path2 = "./bagfiles/validation/"
+        path3 = "./bagfiles/new/"
 
-        files1 = [f for f in os.listdir(path1) if f[-4:] == '.bag']
-        if not files1:
-            print('No bag files found!')
-            return None
-        files2 = [f for f in os.listdir(path2) if f[-4:] == '.bag']
-        if not files2:
-            print('No bag files found!')
-            return None
-        files = []
-        for f_ in files1:
-            files.append(f_)
-        for f_ in files2:
-            files.append(f_)
+        scelta_2 = raw_input("new data?:[y/n]")
+        if scelta_2 == 'n':
+            files1 = [f for f in os.listdir(path1) if f[-4:] == '.bag']
+            if not files1:
+                print('No bag files found!')
+                return None
+            files2 = [f for f in os.listdir(path2) if f[-4:] == '.bag']
+            if not files2:
+                print('No bag files found!')
+                return None
+            files = []
+            for f_ in files1:
+                files.append(f_)
+            for f_ in files2:
+                files.append(f_)
+        else:
+            files = [f for f in os.listdir(path3) if f[-4:] == '.bag']
+            if not files:
+                print('No bag files found!')
+                return None
 
-        scelta_2 = raw_input("Single or multi:[s/m]")
-        if scelta_2 == 's':
+        scelta_3 = raw_input("Single or multi:[s/m]")
+        if scelta_3 == 's':
             for f in files:
                 bag_to_vid(f)
         else:
             pool = Pool(processes=4)
-            pool.map(bag_to_vid, files[:2])
+            pool.map(bag_to_vid, files[:])
             pool.close()
             pool.join()
 
@@ -486,7 +503,6 @@ def main():
         #
         # dist_mean = np.mean(sum_dist)  # 1.437
 
-
         scelta_2 = raw_input("Train/val or cross:[t/c]")
 
         if scelta_2 == "t":
@@ -500,8 +516,8 @@ def main():
                 return None
 
             for f in files:
-                bag = rosbag.Bag(path + f)
-                b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions, distance_list, delta_z_list = data_pre_processing(bag)
+                with rosbag.Bag(path + f) as bag:
+                    b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions, distance_list, delta_z_list = data_pre_processing(bag)
 
                 datacr_train.generate_data(distances=distance_list,
                                            b_orientation=b_sel_orientations,
@@ -522,8 +538,8 @@ def main():
                 return None
 
             for f in files:
-                bag = rosbag.Bag(path + f)
-                b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions, distance_list, delta_z_list = data_pre_processing(bag)
+                with rosbag.Bag(path + f) as bag:
+                    b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions, distance_list, delta_z_list = data_pre_processing(bag)
                 datacr_val.generate_data(distances=distance_list,
                                          b_orientation=b_sel_orientations,
                                          b_position=b_sel_positions,
