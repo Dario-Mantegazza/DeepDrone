@@ -40,8 +40,12 @@ bag_end_cut = {
     "16": 3500,
     "17": 1400,
     "18": 1300,
-    "19": 1728
+    "19": 1728,
+    "20": 5070,
+    "21": 11960,
+    "22": 5200
 }
+
 bag_start_cut = {
     "1": 0,
     "2": 0,
@@ -61,7 +65,10 @@ bag_start_cut = {
     "16": 0,
     "17": 0,
     "18": 0,
-    "19": 0
+    "19": 0,
+    "20": 220,
+    "21": 0,
+    "22": 222
 }
 bag_file_path = {
     "1": "./bagfiles/train/",
@@ -83,9 +90,9 @@ bag_file_path = {
     "17": "./bagfiles/train/",
     "18": "./bagfiles/train/",
     "19": "./bagfiles/train/",
-    "20": "./bagfiles/new/",
-    "21": "./bagfiles/new/",
-    "22": "./bagfiles/new/"
+    "20": "./bagfiles/train/",
+    "21": "./bagfiles/train/",
+    "22": "./bagfiles/validation/"
 }
 
 
