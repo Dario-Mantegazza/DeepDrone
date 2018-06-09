@@ -13,14 +13,22 @@ pickle_sections = {
     "1": 1,
     "2": 0,
     "3": 3,
-    "4": 2,
+    "4": 4,
     "5": 4,
     "6": 3,
     "7": 2,
     "8": 0,
     "9": 1,
     "10": 3,
-    "11": 4
+    "11": 4,
+    "12": 2,
+    "13": 3,
+    "14": 4,
+    "15": 1,
+    "16": 0,
+    "17": 2,
+    "18": 2,
+    "19": 2
 }
 
 # Cnn method contains the definition, training, testing and plotting of the CNN model and dataset
