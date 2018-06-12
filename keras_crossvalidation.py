@@ -117,6 +117,7 @@ def crossValidation(k_fold, batch_size, num_classes, epochs):
                 x_train_list.append(pd.read_pickle("./dataset/crossvalidation/" + f))
         train = pd.concat(x_train_list).values
         validation = pd.concat(x_test_list).values
+
         model_name = 'keras_bebop_trained_model_' + str(i) + '.h5'
         x_train = 255 - train[:, 0]  # otherwise is inverted
         x_train = np.vstack(x_train[:]).astype(np.float32)

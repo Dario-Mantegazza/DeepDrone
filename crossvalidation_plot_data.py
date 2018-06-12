@@ -18,6 +18,8 @@ class KerasVideoCreator:
         self.preds = preds
         self.PADCOLOR = [255, 255, 255]
         self.drone_im = cv2.resize(cv2.imread("drone.png"), (0, 0), fx=0.08, fy=0.08)
+        self.mean_dist = 1.55
+
 
     # function used to compose the frame
     def frame_composer(self, i):
@@ -79,7 +81,7 @@ class KerasVideoCreator:
                              [t_x, t_y],
                              [int(t_x + (math.sin(math.radians(camera_fov / 2)) * triangle_side_len)), int(t_y - (math.cos(math.radians(camera_fov / 2)) * triangle_side_len))]], np.int32)
         cv2.fillConvexPoly(im_final, triangle, color=triangle_color, lineType=1)
-        scale_factor = (math.cos(math.radians(camera_fov / 2)) * triangle_side_len) / (2 * 1.437)
+        scale_factor = (math.cos(math.radians(camera_fov / 2)) * triangle_side_len) / (2 * self.mean_dist)
 
         cv2.putText(im_final, "Relative pose", (300, 90), font, 0.5, text_color, 1, cv2.LINE_AA)
         cv2.line(im_final,
@@ -93,13 +95,13 @@ class KerasVideoCreator:
                  (30, int((t_y - (math.cos(math.radians(camera_fov / 2)) * triangle_side_len)))),
                  color=(0, 0, 0),
                  thickness=1)
-        cv2.putText(im_final, "2.8 m", (31, int((t_y - (math.cos(math.radians(camera_fov / 2)) * triangle_side_len)))), font, 0.4, text_color, 1, cv2.LINE_AA)
+        cv2.putText(im_final, "%.1f m"%(self.mean_dist*2), (31, int((t_y - (math.cos(math.radians(camera_fov / 2)) * triangle_side_len)))), font, 0.4, text_color, 1, cv2.LINE_AA)
         cv2.line(im_final,
                  (15, int((t_y - ((math.cos(math.radians(camera_fov / 2)) * triangle_side_len) / 2)))),
                  (30, int((t_y - ((math.cos(math.radians(camera_fov / 2)) * triangle_side_len) / 2)))),
                  color=(0, 0, 0),
                  thickness=1)
-        cv2.putText(im_final, "1.4 m", (31, int((t_y + 3 - ((math.cos(math.radians(camera_fov / 2)) * triangle_side_len) / 2)))), font, 0.4, text_color, 1, cv2.LINE_AA)
+        cv2.putText(im_final, "%.1f m" % self.mean_dist, (31, int((t_y + 3 - ((math.cos(math.radians(camera_fov / 2)) * triangle_side_len) / 2)))), font, 0.4, text_color, 1, cv2.LINE_AA)
         cv2.line(im_final,
                  (15, t_y),
                  (30, t_y),

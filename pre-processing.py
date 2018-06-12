@@ -17,7 +17,6 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.ticker import MultipleLocator
 from scipy.spatial import distance
 from transforms3d.derivations.quaternions import quat2mat
-import rosbag_pandas
 
 # ------ Global Dictionaries ------
 
@@ -102,7 +101,6 @@ bag_file_path = {
 class DatasetCreator:
     def __init__(self):
         self.dataset = []
-        pass
 
     # Main method of the class, cycles through different nparrays and call other methods to compose the dataset.
     def generate_data(self, distances, b_orientation, b_position, frame_list, h_orientation, h_position, delta_z, f):
@@ -265,13 +263,13 @@ class VideoCreator:
 
 # ----------FUNCTIONS DEFINITIONS---------------
 
-# function that convert rospose to homogeneus matrix
+    # function that convert rospose to homogeneus matrix
 def rospose2homogmat(p, q):
     w_r_o = np.array(quat2mat(quat_to_array(q))).astype(np.float64)  # rotation matrix of object wrt world frame
     np_pose = np.array([[p.x], [p.y], [p.z]])
-    tempmat_b = np.hstack((w_r_o, np_pose))
-    w_r_o = np.vstack((tempmat_b, [0, 0, 0, 1]))
-    return w_r_o
+    tempmat = np.hstack((w_r_o, np_pose))
+    w_t_o = np.vstack((tempmat, [0, 0, 0, 1]))
+    return w_t_o
 
 
 # method that compute the change of frame of reference of the head wrt world to head wrt bebop
@@ -456,6 +454,8 @@ def bag_to_pickle(f):
                          delta_z=delta_z_list,
                          f=f)
     datacr.save_dataset(flag_train="cross", title=f[:-4] + ".pickle")
+    print("\nCompleted pickle #" + str(f))
+
 
 
 # ------ Main ------
@@ -501,37 +501,37 @@ def main():
             pool.join()
 
     else:
-        # # compute dataset mean distance -- not used because the value now is hard coded
-        # # train
-        # path = "./bagfiles/train/"
-        # files = [f for f in os.listdir(path) if f[-4:] == '.bag']
-        # if not files:
-        #     print('No bag files found!')
-        #     return None
-        # sum_dist = []
-        # for f in files:
-        #     bag = rosbag.Bag(path + f)
-        #     _, _, _, _, _, distance_list = data_pre_processing(bag)
-        #     sum_dist.append(np.mean(distance_list))
-        #
-        # validation
+        # # compute dataset mean distance
+        scelta_2 = raw_input("Train/val, Distance or cross:[t/d/c]")
 
-        # path = "./bagfiles/validation/"
-        # files = [f for f in os.listdir(path) if f[-4:] == '.bag']
-        # if not files:
-        #     print('No bag files found!')
-        #     return None
-        #
-        # for f in files:
-        #     bag = rosbag.Bag(path + f)
-        #     _, _, _, _, _, distance_list = data_pre_processing(bag)
-        #     sum_dist.append(np.mean(distance_list))
-        #
-        # dist_mean = np.mean(sum_dist)  # 1.437
+        if scelta_2 == "d":
+            path = "./bagfiles/train/"
+            files = [f for f in os.listdir(path) if f[-4:] == '.bag']
+            if not files:
+                print('No bag files found!')
+                return None
+            sum_dist = []
+            for f in files:
+                bag = rosbag.Bag(path + f)
+                _, _, _, _, _, distance_list, _ = data_pre_processing(bag)
+                sum_dist.append(np.mean(distance_list))
 
-        scelta_2 = raw_input("Train/val or cross:[t/c]")
 
-        if scelta_2 == "t":
+
+            path = "./bagfiles/validation/"
+            files = [f for f in os.listdir(path) if f[-4:] == '.bag']
+            if not files:
+                print('No bag files found!')
+                return None
+
+            for f in files:
+                bag = rosbag.Bag(path + f)
+                _, _, _, _, _, distance_list, _ = data_pre_processing(bag)
+                sum_dist.append(np.mean(distance_list))
+
+            dist_mean = np.mean(sum_dist)  # 1.5527058420265916
+            print(dist_mean)
+        elif scelta_2 == "t":
             # create dataset, not parallelized.
             # train
             datacr_train = DatasetCreator()
@@ -575,7 +575,7 @@ def main():
                                          delta_z=delta_z_list,
                                          f=f)
             datacr_val.save_dataset(flag_train="validation")
-        else:
+        elif scelta_2 == "c":
             path1 = "./bagfiles/train/"
             path2 = "./bagfiles/validation/"
 
@@ -602,6 +602,9 @@ def main():
                 pool.map(bag_to_pickle, files[:])
                 pool.close()
                 pool.join()
+        else:
+            print('Error in selection')
+            return None
 
 
 if __name__ == "__main__":
