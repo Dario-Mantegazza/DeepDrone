@@ -279,39 +279,35 @@ def main():
     if scelta == "t":
         # create dataset, not parallelized.
         # train
-        datacr_train = DatasetCreator()
         path = "./bagfiles/train/"
         files = [f for f in os.listdir(path) if f[-4:] == '.bag']
         if not files:
             print('No bag files found!')
             return None
-
+        datacr_train = DatasetCreator()
         for f in files:
             path = bag_file_path[f[:-4]]
             print("\nreading bag: " + str(f))
-            datacr = DatasetCreator()
             with rosbag.Bag(path + f) as bag:
                 bag_df_dict = get_bag_data_pandas(bag)
             data_vec = pre_proc(bag_df_dict=bag_df_dict, data_id=f[:-4], f=f)
-            datacr.generate_data(data_vec=data_vec)
+            datacr_train.generate_data(data_vec=data_vec)
         datacr_train.save_dataset(flag_train="train")
 
         # validation
-        datacr_val = DatasetCreator()
         path = "./bagfiles/validation/"
         files = [f for f in os.listdir(path) if f[-4:] == '.bag']
         if not files:
             print('No bag files found!')
             return None
-
+        datacr_val=DatasetCreator()
         for f in files:
             path = bag_file_path[f[:-4]]
             print("\nreading bag: " + str(f))
-            datacr = DatasetCreator()
             with rosbag.Bag(path + f) as bag:
                 bag_df_dict = get_bag_data_pandas(bag)
             data_vec = pre_proc(bag_df_dict=bag_df_dict, data_id=f[:-4], f=f)
-            datacr.generate_data(data_vec=data_vec)
+            datacr_val.generate_data(data_vec=data_vec)
         datacr_val.save_dataset(flag_train="validation")
 
     elif scelta == "c":
