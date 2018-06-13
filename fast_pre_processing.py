@@ -1,4 +1,5 @@
 # ------ Import ------
+import math
 import os
 from multiprocessing import Pool
 
@@ -7,7 +8,8 @@ import numpy as np
 import pandas as pd
 import rosbag
 import tqdm as tqdm
-from tf.transformations import quaternion_from_matrix
+import tf
+
 from transforms3d.derivations.quaternions import quat2mat
 
 bag_end_cut = {
@@ -224,6 +226,12 @@ def jpeg2np(image, size=None):
     return img
 
 
+# method to convert quaternion orientation to euler orientation
+def quat_to_eul(q):
+    euler = tf.transformations.euler_from_quaternion(q)  # roll 0, pitch 1, yaw 2
+    return euler
+
+
 def pre_proc(bag_df_dict, data_id, f):
     camera_t = bag_df_dict["camera_df"].index.values
     bebop_t = bag_df_dict["bebop_df"].index.values
@@ -238,9 +246,16 @@ def pre_proc(bag_df_dict, data_id, f):
         bebop_pose = bag_df_dict["bebop_df"].iloc[b_id]
         img = bag_df_dict["camera_df"].iloc[i].values[0]
         b_t_h = change_frame_reference(bebop_pose, head_pose)
-        label_quaternion = quaternion_from_matrix(b_t_h)
-        label_position = b_t_h[:-1, -1:].T
-        label = (label_quaternion, label_position)
+        quaternion_bebop = bebop_pose[['b_rot_w', 'b_rot_x', 'b_rot_y', 'b_rot_z']].values
+        quaternion_head = head_pose[['h_rot_w', 'h_rot_x', 'h_rot_y', 'h_rot_z']].values
+        _, _, head_yaw = quat_to_eul(quaternion_head)
+        head_yaw_deg = math.degrees(head_yaw)
+        _, _, bebop_yaw = quat_to_eul(quaternion_bebop)
+        bebop_yaw_deg = math.degrees(bebop_yaw)
+
+        relative_yaw_deg = head_yaw_deg - bebop_yaw_deg
+        label_position = b_t_h[:-1, -1:].T[0]
+        label = (label_position[0], label_position[1], label_position[2], relative_yaw_deg)
         data_vec.append((img, label))
     return data_vec
 

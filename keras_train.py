@@ -308,7 +308,7 @@ def main():
     validation = pd.read_pickle("./dataset/validation.pickle").values
 
     batch_size = 64
-    num_classes = 3
+    num_classes = 4
     epochs = 10
 
     save_dir = os.path.join(os.getcwd(), 'saved_models')

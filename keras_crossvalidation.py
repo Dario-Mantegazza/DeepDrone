@@ -40,7 +40,8 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
     # x_train = x_train.astype('float32')
     # x_test = x_test.astype('float32')
 
-    model, lr, decay = model_creator(num_classes, show_summary=False)
+    # model, lr, decay = model_creator(num_classes, show_summary=False) # change dataset
+    model, lr, decay = model_creator(num_classes, show_summary=True, old=True)
     if i == 0:
         plot_model(model.layers[1], to_file=save_dir + '/model_seq.png')
         plot_model(model, to_file=save_dir + '/model_out.png')
