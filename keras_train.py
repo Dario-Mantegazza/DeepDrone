@@ -131,6 +131,7 @@ class KerasVideoCreator:
         self.preds = preds
         self.PADCOLOR = [255, 255, 255]
         self.drone_im = cv2.resize(cv2.imread("drone.png"), (0, 0), fx=0.08, fy=0.08)
+        self.mean_dist = 1.55
 
     # function used to compose the frame
     def frame_composer(self, i):
@@ -159,15 +160,16 @@ class KerasVideoCreator:
 
         # Top view
         triangle_color = (255, 229, 204)
-        angle_deg = y_d[1]
 
         # Text Information
-        cv2.putText(im_final, "Distance T: %.3f" % (l_d[0]), (20, 20), font, 0.5, text_color, 1, cv2.LINE_AA)
-        cv2.putText(im_final, "Distance P: %.3f" % (y_d[0]), (20, 40), font, 0.5, text_color, 1, cv2.LINE_AA)
-        cv2.putText(im_final, "Angle T: %.3f" % (l_d[1]), (220, 20), font, 0.5, text_color, 1, cv2.LINE_AA)
-        cv2.putText(im_final, "Angle P: %.3f" % angle_deg, (220, 40), font, 0.5, text_color, 1, cv2.LINE_AA)
-        cv2.putText(im_final, "Delta z T: %.3f" % (l_d[2]), (400, 20), font, 0.5, text_color, 1, cv2.LINE_AA)
-        cv2.putText(im_final, "Delta z P: %.3f" % (y_d[2]), (400, 40), font, 0.5, text_color, 1, cv2.LINE_AA)
+        cv2.putText(im_final, "X T: %.3f" % (l_d[0]), (20, 20), font, 0.5, text_color, 1, cv2.LINE_AA)
+        cv2.putText(im_final, "X P: %.3f" % (y_d[0]), (20, 40), font, 0.5, text_color, 1, cv2.LINE_AA)
+        cv2.putText(im_final, "Y T: %.3f" % (l_d[1]), (220, 20), font, 0.5, text_color, 1, cv2.LINE_AA)
+        cv2.putText(im_final, "Y P: %.3f" % (y_d[1]), (220, 40), font, 0.5, text_color, 1, cv2.LINE_AA)
+        cv2.putText(im_final, "Z T: %.3f" % (l_d[2]), (400, 20), font, 0.5, text_color, 1, cv2.LINE_AA)
+        cv2.putText(im_final, "Z P: %.3f" % (y_d[2]), (400, 40), font, 0.5, text_color, 1, cv2.LINE_AA)
+        cv2.putText(im_final, "Yaw T: %.3f" % (l_d[3]), (500, 20), font, 0.5, text_color, 1, cv2.LINE_AA)
+        cv2.putText(im_final, "Yaw P: %.3f" % (y_d[3]), (500, 40), font, 0.5, text_color, 1, cv2.LINE_AA)
 
         # draw legend
         pr_color = (255, 0, 0)
@@ -206,13 +208,13 @@ class KerasVideoCreator:
                  (30, int((t_y - (math.cos(math.radians(camera_fov / 2)) * triangle_side_len)))),
                  color=(0, 0, 0),
                  thickness=1)
-        cv2.putText(im_final, "2.8 m", (31, int((t_y - (math.cos(math.radians(camera_fov / 2)) * triangle_side_len)))), font, 0.4, text_color, 1, cv2.LINE_AA)
+        cv2.putText(im_final, "%.1f m"%(self.mean_dist*2), (31, int((t_y - (math.cos(math.radians(camera_fov / 2)) * triangle_side_len)))), font, 0.4, text_color, 1, cv2.LINE_AA)
         cv2.line(im_final,
                  (15, int((t_y - ((math.cos(math.radians(camera_fov / 2)) * triangle_side_len) / 2)))),
                  (30, int((t_y - ((math.cos(math.radians(camera_fov / 2)) * triangle_side_len) / 2)))),
                  color=(0, 0, 0),
                  thickness=1)
-        cv2.putText(im_final, "1.4 m", (31, int((t_y + 3 - ((math.cos(math.radians(camera_fov / 2)) * triangle_side_len) / 2)))), font, 0.4, text_color, 1, cv2.LINE_AA)
+        cv2.putText(im_final, "%.1f m" % self.mean_dist, (31, int((t_y + 3 - ((math.cos(math.radians(camera_fov / 2)) * triangle_side_len) / 2)))), font, 0.4, text_color, 1, cv2.LINE_AA)
         cv2.line(im_final,
                  (15, t_y),
                  (30, t_y),
@@ -221,13 +223,13 @@ class KerasVideoCreator:
         cv2.putText(im_final, "0 m", (31, t_y + 5), font, 0.4, text_color, 1, cv2.LINE_AA)
 
         # draw GT
-        gt_center = (int((t_x + scale_factor * (math.sin(math.radians(self.labels[i, 1])) * self.labels[i, 0]))),
-                     int((t_y - scale_factor * (math.cos(math.radians(self.labels[i, 1])) * self.labels[i, 0]))))
+        gt_center = (int(t_x + self.labels[i, 1]),
+                     int(t_y - self.labels[i, 1]))
         cv2.circle(im_final, center=gt_center, radius=5, color=gt_color, thickness=2)
 
         # draw Pred
-        pr_center = (int((t_x + scale_factor * (math.sin(math.radians(self.preds[1][i])) * self.preds[0][i]))),
-                     int((t_y - scale_factor * (math.cos(math.radians(self.preds[1][i])) * self.preds[0][i]))))
+        pr_center = (int(t_x + self.preds[1][i]),
+                     int(t_y - self.preds[1][i]))
         cv2.circle(im_final, center=pr_center, radius=5, color=pr_color, thickness=5)
 
         # draw height
@@ -270,7 +272,7 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
     model,_,_ = model_creator(num_classes)
     batch_per_epoch = math.ceil(x_train.shape[0] / batch_size)
     gen = generator(x_train, y_train, batch_size)
-    history = model.fit_generator(generator=gen, validation_data=(x_test, [y_test[:, 0], y_test[:, 1], y_test[:, 2]]), epochs=epochs, steps_per_epoch=batch_per_epoch)
+    history = model.fit_generator(generator=gen, validation_data=(x_test, [y_test[:, 0], y_test[:, 1], y_test[:, 2], y_test[:, 3]]), epochs=epochs, steps_per_epoch=batch_per_epoch)
 
     # Save model and weights    model = model_creator(num_classes)
     if not os.path.isdir(save_dir):
@@ -281,7 +283,7 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
 
     # Score trained model.
     # TODO redo scores prints
-    scores = model.evaluate(x_test, [y_test[:, 0], y_test[:, 1], y_test[:, 2]], verbose=1)
+    scores = model.evaluate(x_test, [y_test[:, 0], y_test[:, 1], y_test[:, 2], y_test[:, 3]], verbose=1)
     y_pred = model.predict(x_test)
     print('Test loss:', scores[0])
     print('Test mse:', scores[1])
@@ -299,7 +301,7 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
     vidcr_test.video_plot_creator()
 
     # show some plots
-    plot_results(history, y_pred, y_test)
+    # plot_results(history, y_pred, y_test)
 
 
 # ------------------- Main ----------------------

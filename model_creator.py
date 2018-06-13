@@ -68,37 +68,21 @@ def data_augmentor(frame, label, noise=False):
     return frame, label
 
 
-def generator(features, labels, batch_size):
-    while True:
-        indexes = np.random.choice(np.arange(0, features.shape[0]), batch_size)
-        batch_features = features[indexes]
-        batch_labels = labels[indexes]
-        for i in range(0, batch_features.shape[0]):
-            batch_features[i], batch_labels[i] = data_augmentor(batch_features[i], batch_labels[i])
-        yield batch_features, [batch_labels[:, 0], batch_labels[:, 1], batch_labels[:, 2]]
+def generator(features, labels, batch_size, old=False):
+    if old:
+        while True:
+            indexes = np.random.choice(np.arange(0, features.shape[0]), batch_size)
+            batch_features = features[indexes]
+            batch_labels = labels[indexes]
+            for i in range(0, batch_features.shape[0]):
+                batch_features[i], batch_labels[i] = data_augmentor(batch_features[i], batch_labels[i])
+            yield batch_features, [batch_labels[:, 0], batch_labels[:, 1], batch_labels[:, 2]]
+    else:
+        while True:
+            indexes = np.random.choice(np.arange(0, features.shape[0]), batch_size)
+            batch_features = features[indexes]
+            batch_labels = labels[indexes]
+            for i in range(0, batch_features.shape[0]):
+                batch_features[i], batch_labels[i] = data_augmentor(batch_features[i], batch_labels[i])
+            yield batch_features, [batch_labels[:, 0], batch_labels[:, 1], batch_labels[:, 2], batch_labels[:, 3]]
 
-# from keras.models import Model
-# from keras.layers import *
-#
-# #inp is a "tensor", that can be passed when calling other layers to produce an output
-# inp = Input((10,)) #supposing you have ten numeric values as input
-#
-#
-# #here, SomeLayer() is defining a layer,
-# #and calling it with (inp) produces the output tensor x
-# x = SomeLayer(blablabla)(inp)
-# x = SomeOtherLayer(blablabla)(x) #here, I just replace x, because this intermediate output is not interesting to keep
-#
-#
-# #here, I want to keep the two different outputs for defining the model
-# #notice that both left and right are called with the same input x, creating a fork
-# out1 = LeftSideLastLayer(balbalba)(x)
-# out2 = RightSideLastLayer(banblabala)(x)
-#
-#
-# #here, you define which path you will follow in the graph you've drawn with layers
-# #notice the two outputs passed in a list, telling the model I want it to have two outputs.
-# model = Model(inp, [out1,out2])
-# model.compile(optimizer = ...., loss = ....) #loss can be one for both sides or a list with different loss functions for out1 and out2
-#
-# model.fit(inputData,[outputYLeft, outputYRight], epochs=..., batch_size=...)

@@ -57,7 +57,7 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
             model.summary(print_fn=lambda x: outfile.write(x + '\n'))
             outfile.close()
     batch_per_epoch = math.ceil(x_train.shape[0] / batch_size)
-    gen = generator(x_train, y_train, batch_size)
+    gen = generator(x_train, y_train, batch_size, old=True)
     history = model.fit_generator(generator=gen, validation_data=(x_test, [y_test[:, 0], y_test[:, 1], y_test[:, 2]]), epochs=epochs, steps_per_epoch=batch_per_epoch)
 
     # Save model and weights    model = model_creator(num_classes)
@@ -94,7 +94,7 @@ def crossValidation(k_fold, batch_size, num_classes, epochs):
         except OSError:
             if not os.path.isdir(save_path + "/result_model_" + str(i)):
                 raise
-    path = "./dataset/crossvalidation/"
+    path = "./dataset/old/crossvalidation/"
     files = [f for f in os.listdir(path) if f[-7:] == '.pickle']
 
     history_list = []
