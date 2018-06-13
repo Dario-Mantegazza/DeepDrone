@@ -143,15 +143,15 @@ class DatasetCreator:
             shuffled_dataset = list(self.dataset)
             # np.random.shuffle(shuffled_dataset)
             train = pd.DataFrame(shuffled_dataset)
-            train.to_pickle("./dataset/train.pickle")
+            train.to_pickle("./dataset/old/train.pickle")
         elif flag_train == "validation":
             shuffled_dataset = list(self.dataset)
             # no shuffling for validation
             val = pd.DataFrame(shuffled_dataset)
-            val.to_pickle("./dataset/validation.pickle")
+            val.to_pickle("./dataset/old/validation.pickle")
         elif flag_train == "cross":
             val = pd.DataFrame(list(self.dataset))
-            val.to_pickle("./dataset/crossvalidation/" + title)
+            val.to_pickle("./dataset/old/crossvalidation/" + title)
         else:
             print("ERROR in FLAG TRAIN")
             return None

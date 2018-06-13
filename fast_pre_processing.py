@@ -100,14 +100,14 @@ class DatasetCreator:
         if flag_train == "train":
             shuffled_dataset = list(self.dataset)
             train = pd.DataFrame(shuffled_dataset)
-            train.to_pickle("./pose_dataset/train.pickle")
+            train.to_pickle("./dataset/train.pickle")
         elif flag_train == "validation":
             shuffled_dataset = list(self.dataset)
             val = pd.DataFrame(shuffled_dataset)
-            val.to_pickle("./pose_dataset/validation.pickle")
+            val.to_pickle("./dataset/validation.pickle")
         elif flag_train == "cross":
             val = pd.DataFrame(list(self.dataset))
-            val.to_pickle("./pose_dataset/crossvalidation/" + title)
+            val.to_pickle("./dataset/crossvalidation/" + title)
         else:
             print("ERROR in FLAG TRAIN")
             return None
@@ -274,8 +274,37 @@ def bag_to_pickle(f):
 
 
 def main():
-    scelta = raw_input("Train/val or cross:[t/c]")
+    scelta = raw_input("Train/val, distances or cross:[t/d/c]")
 
+    # if scelta == "d":
+    #     path = "./bagfiles/train/"
+    #     files = [f for f in os.listdir(path) if f[-4:] == '.bag']
+    #     if not files:
+    #         print('No bag files found!')
+    #         return None
+    #     min = max = 0
+    #     for f in files:
+    #         path = bag_file_path[f[:-4]]
+    #         print("\nreading bag: " + str(f))
+    #         with rosbag.Bag(path + f) as bag:
+    #             bag_df_dict = get_bag_data_pandas(bag)
+    #         data_vec = pre_proc(bag_df_dict=bag_df_dict, data_id=f[:-4], f=f)
+    #         data_vec
+    #     # validation
+    #     path = "./bagfiles/validation/"
+    #     files = [f for f in os.listdir(path) if f[-4:] == '.bag']
+    #     if not files:
+    #         print('No bag files found!')
+    #         return None
+    #     for f in files:
+    #         path = bag_file_path[f[:-4]]
+    #         print("\nreading bag: " + str(f))
+    #         with rosbag.Bag(path + f) as bag:
+    #             bag_df_dict = get_bag_data_pandas(bag)
+    #         data_vec = pre_proc(bag_df_dict=bag_df_dict, data_id=f[:-4], f=f)
+    #
+    #     print("min: %0.3f, max: %1.3f" % (min, max))
+    # elif scelta == "t":
     if scelta == "t":
         # create dataset, not parallelized.
         # train
@@ -300,7 +329,7 @@ def main():
         if not files:
             print('No bag files found!')
             return None
-        datacr_val=DatasetCreator()
+        datacr_val = DatasetCreator()
         for f in files:
             path = bag_file_path[f[:-4]]
             print("\nreading bag: " + str(f))
