@@ -9,7 +9,7 @@ import pandas as pd
 import rosbag
 import tqdm as tqdm
 import tf
-
+from matplotlib import pyplot as plt
 from transforms3d.derivations.quaternions import quat2mat
 
 bag_end_cut = {
@@ -239,24 +239,45 @@ def pre_proc(bag_df_dict, data_id, f):
     data_vec = []
     max_ = bag_end_cut[f[:-4]]
     min_ = bag_start_cut[f[:-4]]
+    bebop_angles = []
+    head_angles = []
+    diff = []
     for i in tqdm.tqdm(range(min_, max_), desc="processing data " + str(data_id)):
         b_id = find_nearest(bebop_t, camera_t[i])
         h_id = find_nearest(head_t, camera_t[i])
+
         head_pose = bag_df_dict["head_df"].iloc[h_id]
         bebop_pose = bag_df_dict["bebop_df"].iloc[b_id]
+
         img = bag_df_dict["camera_df"].iloc[i].values[0]
+
         b_t_h = change_frame_reference(bebop_pose, head_pose)
-        quaternion_bebop = bebop_pose[['b_rot_w', 'b_rot_x', 'b_rot_y', 'b_rot_z']].values
-        quaternion_head = head_pose[['h_rot_w', 'h_rot_x', 'h_rot_y', 'h_rot_z']].values
+
+        quaternion_bebop = bebop_pose[['b_rot_x', 'b_rot_y', 'b_rot_z', 'b_rot_w']].values
+        quaternion_head = head_pose[['h_rot_x', 'h_rot_y', 'h_rot_z', 'h_rot_w']].values
+
         _, _, head_yaw = quat_to_eul(quaternion_head)
         head_yaw_deg = math.degrees(head_yaw)
+        head_angles.append(head_yaw_deg)
+
         _, _, bebop_yaw = quat_to_eul(quaternion_bebop)
         bebop_yaw_deg = math.degrees(bebop_yaw)
+
+        bebop_angles.append(bebop_yaw_deg)
+        diff.append(head_yaw_deg - bebop_yaw_deg)
 
         relative_yaw_deg = head_yaw_deg - bebop_yaw_deg
         label_position = b_t_h[:-1, -1:].T[0]
         label = (label_position[0], label_position[1], label_position[2], relative_yaw_deg)
         data_vec.append((img, label))
+
+    # plt.title("bag " + str(f))
+    # plt.plot(diff)
+    # plt.plot(bebop_angles)
+    # plt.plot(head_angles)
+    # plt.legend(['diff', 'bebop', 'head'])
+    # plt.show()
+    # _ = raw_input("continue")
     return data_vec
 
 
@@ -274,40 +295,11 @@ def bag_to_pickle(f):
 
 
 def main():
-    scelta = raw_input("Train/val, distances or cross:[t/d/c]")
-
-    # if scelta == "d":
-    #     path = "./bagfiles/train/"
-    #     files = [f for f in os.listdir(path) if f[-4:] == '.bag']
-    #     if not files:
-    #         print('No bag files found!')
-    #         return None
-    #     min = max = 0
-    #     for f in files:
-    #         path = bag_file_path[f[:-4]]
-    #         print("\nreading bag: " + str(f))
-    #         with rosbag.Bag(path + f) as bag:
-    #             bag_df_dict = get_bag_data_pandas(bag)
-    #         data_vec = pre_proc(bag_df_dict=bag_df_dict, data_id=f[:-4], f=f)
-    #         data_vec
-    #     # validation
-    #     path = "./bagfiles/validation/"
-    #     files = [f for f in os.listdir(path) if f[-4:] == '.bag']
-    #     if not files:
-    #         print('No bag files found!')
-    #         return None
-    #     for f in files:
-    #         path = bag_file_path[f[:-4]]
-    #         print("\nreading bag: " + str(f))
-    #         with rosbag.Bag(path + f) as bag:
-    #             bag_df_dict = get_bag_data_pandas(bag)
-    #         data_vec = pre_proc(bag_df_dict=bag_df_dict, data_id=f[:-4], f=f)
-    #
-    #     print("min: %0.3f, max: %1.3f" % (min, max))
-    # elif scelta == "t":
+    scelta = raw_input("Train/val or cross:[t/c]")
     if scelta == "t":
         # create dataset, not parallelized.
         # train
+
         path = "./bagfiles/train/"
         files = [f for f in os.listdir(path) if f[-4:] == '.bag']
         if not files:

@@ -262,7 +262,7 @@ class KerasVideoCreator:
         cv2.putText(im_final, "-%.1f m" % (self.mean_dist * 2), (int(t_x - 5 + scale_factor * (self.mean_dist * 2)), 70), font, 0.4, text_color, 1, cv2.LINE_AA)
 
         # draw GT point
-        gt_x = int((t_x + scale_factor * self.labels[i, 1]))
+        gt_x = int((t_x - scale_factor * self.labels[i, 1]))
         gt_y = int((t_y - scale_factor * self.labels[i, 0]))
         gt_center = (gt_x,
                      gt_y)
@@ -276,11 +276,14 @@ class KerasVideoCreator:
         cv2.circle(im_final, center=pr_center, radius=5, color=pr_color, thickness=5)
 
         # draw heading
-        arrow_len=5
+        arrow_len=40
         # GT
+        l_angle_for_cv2 = -l_d[3] + 90
         cv2.arrowedLine(im_final,
                         gt_center,
-                        (gt_x, gt_y),
+                        (int(gt_x + (arrow_len * math.cos(math.radians(l_angle_for_cv2)))),
+                         int(gt_y + (arrow_len * math.sin(math.radians(l_angle_for_cv2))))
+                         ),
                         color=gt_color,
                         thickness=2)
 
@@ -316,8 +319,8 @@ class KerasVideoCreator:
 
     def video_plot_creator(self):
         max_ = len(self.frame_list)
-        for i in tqdm.tqdm(range(0, max_)):
-            # for i in tqdm.tqdm(range(0, 300)):
+        # for i in tqdm.tqdm(range(0, max_)):
+        for i in tqdm.tqdm(range(1000, 2000)):
             self.frame_composer(i)
         self.video_writer.release()
         cv2.destroyAllWindows()
@@ -368,11 +371,12 @@ def main():
     train = pd.read_pickle("./dataset/train.pickle").values
     validation = pd.read_pickle("./dataset/validation.pickle").values
 
-    batch_size = 64
-    # batch_size = 256
+    # batch_size = 64
+    batch_size = 256
+    # epochs = 20
+    epochs = 1
+
     num_classes = 4
-    epochs = 20
-    # epochs = 1
 
     save_dir = os.path.join(os.getcwd(), 'saved_models')
     model_name = 'keras_bebop_trained_model.h5'
