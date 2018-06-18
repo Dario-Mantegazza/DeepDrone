@@ -10,7 +10,6 @@ from matplotlib import pyplot as plt
 from model_creator import model_creator, generator
 from sklearn.dummy import DummyRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error
-# from model_creator import model_creator
 import inspect
 
 output_names = ["x_pred", "y_pred", "z_pred", "yaw_pred"]
@@ -27,13 +26,20 @@ def plot_results(history, y_pred, y_test, dumb_pred):
     figures = []
     for i in range(4):
         fig = plt.figure()
+        fig.tight_layout()
         tp = fig.add_subplot(2, 2, 1)
         mse = fig.add_subplot(2, 2, 2)
         mae = fig.add_subplot(2, 2, 3)
         sct = fig.add_subplot(2, 2, 4)
+        # tp =  fig.add_subplot(2, 3, 1)
+        # mse = fig.add_subplot(2, 3, 2)
+        # mae = fig.add_subplot(2, 3, 3)
+        # sct = fig.add_subplot(2, 3, 4)
+        # diff_p = fig.add_subplot(2, 3, 5)
+        # hist_ = fig.add_subplot(2, 3, 6)
 
         tp.plot(y_test[:, i])
-        tp.plot(y_pred[i])
+        tp.plot(y_pred[i], alpha=0.9)
         tp.set_title('test-prediction ' + str(output_names[i]))
         tp.set_xlabel('frame')
         tp.set_ylabel('value')
@@ -45,8 +51,8 @@ def plot_results(history, y_pred, y_test, dumb_pred):
         mse.set_title(str(output_names[i]) + ' MSE')
         mse.set_xlabel('epoch')
         mse.set_ylabel('mse')
-        # mse.set_ylim([0, 2 * dumb_pred[i][0]])
-        mse.legend(['train', 'validation'], loc='upper right')
+        mse.set_ylim(0, (2 * dumb_pred[i][0]))
+        mse.legend(['train', 'validation', 'mse dumb'], loc='upper right')
 
         mae.plot(history.history[str(output_names[i]) + '_loss'])
         mae.plot(history.history['val_' + str(output_names[i]) + '_loss'])
@@ -54,14 +60,31 @@ def plot_results(history, y_pred, y_test, dumb_pred):
         mae.set_title(str(output_names[i]) + ' loss(MAE)')
         mae.set_xlabel('epoch')
         mae.set_ylabel('mae')
-        mae.legend(['train', 'test'], loc='upper right')
+        mae.set_ylim(0, (2 * dumb_pred[i][1]))
 
-        sct.scatter(y_test[:, i], y_pred[i], alpha=0.5,s=10)
-        sct.plot(sct.get_xlim(), sct.get_ylim(), ls="--", c="r")
+        mae.legend(['train', 'test', 'mae dumb'], loc='upper right')
+
+        # sct.set(adjustable='box-forced', aspect='equal')
+        sct.set(adjustable='box', aspect='equal')
+        sct.scatter(y_test[:, i], y_pred[i], alpha=0.30, s=10, c='g')
+        sct.plot(sct.get_xlim(), sct.get_ylim(), ls="--", c="b")
         sct.set_title('scatter-plot ' + str(output_names[i]))
         sct.set_xlabel('thruth')
         sct.set_ylabel('pred')
         sct.axis('equal')
+        sct.legend(['diagonal', 'datapoints'], loc='upper left')
+
+        # diff_p.plot(y_test[:, i]-y_pred[i])
+        # diff_p.set_title('test-prediction error ' + str(output_names[i]))
+        # diff_p.set_xlabel('frame')
+        # diff_p.set_ylabel('error')
+        # diff_p.legend(['error'], loc='upper right')
+        #
+        # hist_.hist(y_test[:, i]-y_pred[i])
+        # hist_.set_title('error distribution' + str(output_names[i]))
+        # hist_.set_xlabel('asd')
+        # hist_.set_ylabel('error')
+        # hist_.legend(['error'], loc='upper right')
         figures.append(fig)
     plt.show()
 
@@ -279,6 +302,7 @@ class KerasVideoCreator:
 
 # Cnn method contains the definition, training, testing and plotting of the CNN model and dataset
 def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_train, y_test, y_train):
+
     model, _, _ = model_creator(num_classes)
     batch_per_epoch = math.ceil(x_train.shape[0] / batch_size)
     gen = generator(x_train, y_train, batch_size)
@@ -292,16 +316,16 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
     model.save(model_path)
     print('Saved trained model at %s ' % model_path)
 
-    # Score trained model.
-    # TODO redo scores prints
     scores = model.evaluate(x_test, [y_test[:, 0], y_test[:, 1], y_test[:, 2], y_test[:, 3]], verbose=1)
 
     y_pred = model.predict(x_test)
     print('Test loss:', scores[0])
     print('Test mse:', scores[1])
+    return history, y_pred
 
-    # vidcr_test = KerasVideoCreator(x_test=x_test, labels=y_test, preds=y_pred, title="./video/test_result.avi")
-    # vidcr_test.video_plot_creator()
+
+
+def dumb_regressor_result(x_test, x_train, y_test, y_train):
     dumb_reg = DummyRegressor()
     fake_data = np.zeros((x_train.shape[0], 1))
     fake_test = np.zeros((1, 1))
@@ -311,21 +335,17 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
     dumb_pred_y = np.full((x_test.shape[0], 1), dumb_pred[1])
     dumb_pred_z = np.full((x_test.shape[0], 1), dumb_pred[2])
     dumb_pred_yaw = np.full((x_test.shape[0], 1), dumb_pred[3])
-
     dumb_mse_x = mean_squared_error(y_test[:, 0], dumb_pred_x)
     dumb_mae_x = mean_absolute_error(y_test[:, 0], dumb_pred_x)
-
     dumb_mse_y = mean_squared_error(y_test[:, 1], dumb_pred_y)
     dumb_mae_y = mean_absolute_error(y_test[:, 1], dumb_pred_y)
-
     dumb_mse_z = mean_squared_error(y_test[:, 2], dumb_pred_z)
     dumb_mae_z = mean_absolute_error(y_test[:, 2], dumb_pred_z)
-
     dumb_mse_yaw = mean_squared_error(y_test[:, 3], dumb_pred_yaw)
     dumb_mae_yaw = mean_absolute_error(y_test[:, 3], dumb_pred_yaw)
     # show some plots
     dumb_metrics = [[dumb_mse_x, dumb_mae_x], [dumb_mse_y, dumb_mae_y], [dumb_mse_z, dumb_mae_z], [dumb_mse_yaw, dumb_mae_yaw]]
-    plot_results(history, y_pred, y_test, dumb_metrics)
+    return dumb_metrics
 
 
 # ------------------- Main ----------------------
@@ -339,8 +359,7 @@ def main():
         epochs = 2
     else:
         batch_size = 64
-        epochs = 10
-        # batch_size = 64
+        epochs = 100
         # epochs = 2
 
     num_classes = 4
@@ -365,7 +384,11 @@ def main():
     print('train samples: ' + str(x_train.shape[0]))
     print('test samples:  ' + str(x_test.shape[0]))
 
-    CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_train, y_test, y_train)
+    history, y_pred = CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_train, y_test, y_train)
+    dumb_metrics = dumb_regressor_result(x_test, x_train, y_test, y_train)
+    vidcr_test = KerasVideoCreator(x_test=x_test, labels=y_test, preds=y_pred, title="./video/test_result.avi")
+    vidcr_test.video_plot_creator()
+    plot_results(history, y_pred, y_test, dumb_metrics)
 
 
 if __name__ == "__main__":
