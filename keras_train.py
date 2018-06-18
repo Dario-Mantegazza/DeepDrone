@@ -8,7 +8,8 @@ import tqdm
 from matplotlib import pyplot as plt
 
 from model_creator import model_creator, generator
-
+from sklearn.dummy import DummyRegressor
+from sklearn.metrics import mean_absolute_error, mean_squared_error
 # from model_creator import model_creator
 import inspect
 
@@ -22,14 +23,14 @@ def isdebugging():
     return False
 
 
-def plot_results(history, y_pred, y_test):
+def plot_results(history, y_pred, y_test, dumb_pred):
     figures = []
     for i in range(4):
         fig = plt.figure()
         tp = fig.add_subplot(2, 2, 1)
         mse = fig.add_subplot(2, 2, 2)
         mae = fig.add_subplot(2, 2, 3)
-        scatter = fig.add_subplot(2, 2, 4)
+        sct = fig.add_subplot(2, 2, 4)
 
         tp.plot(y_test[:, i])
         tp.plot(y_pred[i])
@@ -40,22 +41,27 @@ def plot_results(history, y_pred, y_test):
 
         mse.plot(history.history[str(output_names[i]) + '_mean_squared_error'])
         mse.plot(history.history['val_' + str(output_names[i]) + '_mean_squared_error'])
+        mse.axhline(dumb_pred[i][0], c='r', ls='--')
         mse.set_title(str(output_names[i]) + ' MSE')
         mse.set_xlabel('epoch')
-        mse.set_ylabel('error')
+        mse.set_ylabel('mse')
+        # mse.set_ylim([0, 2 * dumb_pred[i][0]])
         mse.legend(['train', 'validation'], loc='upper right')
 
         mae.plot(history.history[str(output_names[i]) + '_loss'])
         mae.plot(history.history['val_' + str(output_names[i]) + '_loss'])
+        mae.axhline(dumb_pred[i][1], c='r', ls='--')
         mae.set_title(str(output_names[i]) + ' loss(MAE)')
         mae.set_xlabel('epoch')
-        mae.set_ylabel('MAE')
+        mae.set_ylabel('mae')
         mae.legend(['train', 'test'], loc='upper right')
 
-        scatter.scatter(y_test[:, i], y_pred[i])
-        scatter.set_title('scatter-plot ' + str(output_names[i]))
-        scatter.set_xlabel('thruth')
-        scatter.set_ylabel('pred')
+        sct.scatter(y_test[:, i], y_pred[i], alpha=0.5,s=10)
+        sct.plot(sct.get_xlim(), sct.get_ylim(), ls="--", c="r")
+        sct.set_title('scatter-plot ' + str(output_names[i]))
+        sct.set_xlabel('thruth')
+        sct.set_ylabel('pred')
+        sct.axis('equal')
         figures.append(fig)
     plt.show()
 
@@ -296,9 +302,30 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
 
     # vidcr_test = KerasVideoCreator(x_test=x_test, labels=y_test, preds=y_pred, title="./video/test_result.avi")
     # vidcr_test.video_plot_creator()
+    dumb_reg = DummyRegressor()
+    fake_data = np.zeros((x_train.shape[0], 1))
+    fake_test = np.zeros((1, 1))
+    dumb_reg.fit(fake_data, y_train)
+    dumb_pred = dumb_reg.predict(fake_test)[0]
+    dumb_pred_x = np.full((x_test.shape[0], 1), dumb_pred[0])
+    dumb_pred_y = np.full((x_test.shape[0], 1), dumb_pred[1])
+    dumb_pred_z = np.full((x_test.shape[0], 1), dumb_pred[2])
+    dumb_pred_yaw = np.full((x_test.shape[0], 1), dumb_pred[3])
 
+    dumb_mse_x = mean_squared_error(y_test[:, 0], dumb_pred_x)
+    dumb_mae_x = mean_absolute_error(y_test[:, 0], dumb_pred_x)
+
+    dumb_mse_y = mean_squared_error(y_test[:, 1], dumb_pred_y)
+    dumb_mae_y = mean_absolute_error(y_test[:, 1], dumb_pred_y)
+
+    dumb_mse_z = mean_squared_error(y_test[:, 2], dumb_pred_z)
+    dumb_mae_z = mean_absolute_error(y_test[:, 2], dumb_pred_z)
+
+    dumb_mse_yaw = mean_squared_error(y_test[:, 3], dumb_pred_yaw)
+    dumb_mae_yaw = mean_absolute_error(y_test[:, 3], dumb_pred_yaw)
     # show some plots
-    plot_results(history, y_pred, y_test)
+    dumb_metrics = [[dumb_mse_x, dumb_mae_x], [dumb_mse_y, dumb_mae_y], [dumb_mse_z, dumb_mae_z], [dumb_mse_yaw, dumb_mae_yaw]]
+    plot_results(history, y_pred, y_test, dumb_metrics)
 
 
 # ------------------- Main ----------------------
@@ -312,9 +339,9 @@ def main():
         epochs = 2
     else:
         batch_size = 64
-        # epochs = 10
+        epochs = 10
         # batch_size = 64
-        epochs = 2
+        # epochs = 2
 
     num_classes = 4
 
