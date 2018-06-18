@@ -30,9 +30,9 @@ def model_creator(num_classes, show_summary=False, old=False):
         y_3 = (Dense(1, activation='linear', name="z_pred"))(out_sequential)
         y_4 = (Dense(1, activation='linear', name="yaw_pred"))(out_sequential)
         model = Model(inputs=model_input, outputs=[y_1, y_2, y_3, y_4])
-        learn_rate = 0.001
-        decay = 1e-6
-        opt = keras.optimizers.Adam(lr=learn_rate, beta_1=0.9, beta_2=0.999, epsilon=None, decay=0.0, amsgrad=False)
+        learn_rate = 0.0001
+        # decay = 1e-6
+        opt = keras.optimizers.Adam(lr=learn_rate)
         # opt = keras.optimizers.rmsprop(lr=learn_rate, decay=decay)
         model.compile(loss='mean_absolute_error',
                       optimizer=opt,
@@ -40,7 +40,7 @@ def model_creator(num_classes, show_summary=False, old=False):
         if show_summary:
             model.summary()
 
-    return model, learn_rate, decay
+    return model, learn_rate, 0
 
 
 def create_sequential():

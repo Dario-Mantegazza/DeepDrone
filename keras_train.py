@@ -394,10 +394,10 @@ def main():
         batch_size = 128
         epochs = 2
     else:
-        # batch_size = 64
-        # epochs = 10
         batch_size = 64
-        epochs = 2
+        epochs = 10
+        # batch_size = 64
+        # epochs = 2
 
     num_classes = 4
 
