@@ -239,9 +239,6 @@ def pre_proc(bag_df_dict, data_id, f):
     data_vec = []
     max_ = bag_end_cut[f[:-4]]
     min_ = bag_start_cut[f[:-4]]
-    bebop_angles = []
-    head_angles = []
-    diff = []
     for i in tqdm.tqdm(range(min_, max_), desc="processing data " + str(data_id)):
         b_id = find_nearest(bebop_t, camera_t[i])
         h_id = find_nearest(head_t, camera_t[i])
@@ -255,31 +252,12 @@ def pre_proc(bag_df_dict, data_id, f):
 
         quaternion_bebop = bebop_pose[['b_rot_x', 'b_rot_y', 'b_rot_z', 'b_rot_w']].values
         quaternion_head = head_pose[['h_rot_x', 'h_rot_y', 'h_rot_z', 'h_rot_w']].values
-
         _, _, head_yaw = quat_to_eul(quaternion_head)
-        # head_yaw_deg = math.degrees(head_yaw)
-        # head_angles.append(head_yaw)
-
         _, _, bebop_yaw = quat_to_eul(quaternion_bebop)
-        # bebop_yaw_deg = math.degrees(bebop_yaw)
-
-        # bebop_angles.append(bebop_yaw)
-        # diff.append(head_yaw - bebop_yaw)
-
-        # relative_yaw_deg = head_yaw_deg - bebop_yaw_deg
         relative_yaw = head_yaw - bebop_yaw
         label_position = b_t_h[:-1, -1:].T[0]
-        # label = (label_position[0], label_position[1], label_position[2], relative_yaw_deg)
         label = (label_position[0], label_position[1], label_position[2], relative_yaw)
         data_vec.append((img, label))
-
-    # plt.title("bag " + str(f))
-    # plt.plot(diff)
-    # plt.plot(bebop_angles)
-    # plt.plot(head_angles)
-    # plt.legend(['diff', 'bebop', 'head'])
-    # plt.show()
-    # _ = raw_input("continue")
     return data_vec
 
 

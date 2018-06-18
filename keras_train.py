@@ -12,6 +12,8 @@ from model_creator import model_creator, generator
 # from model_creator import model_creator
 import inspect
 
+output_names = ["x_pred", "y_pred", "z_pred", "yaw_pred"]
+
 
 def isdebugging():
     for frame in inspect.stack():
@@ -21,109 +23,164 @@ def isdebugging():
 
 
 def plot_results(history, y_pred, y_test):
-    f_angle = plt.figure()
-    tp_angle = f_angle.add_subplot(2, 2, 1)
-    mse_angle = f_angle.add_subplot(2, 2, 2)
-    mae_angle = f_angle.add_subplot(2, 2, 3)
-    scatter_angle = f_angle.add_subplot(2, 2, 4)
+    figures = []
+    for i in range(4):
+        with plt.figure() as fig:
+            tp = fig.add_subplot(2, 2, 1)
+            mse = fig.add_subplot(2, 2, 2)
+            mae = fig.add_subplot(2, 2, 3)
+            scatter = fig.add_subplot(2, 2, 4)
 
-    tp_angle.plot(y_test[:, 1])
-    tp_angle.plot(y_pred[1])
-    tp_angle.set_title('test-prediction angle')
-    tp_angle.set_xlabel('frame')
-    tp_angle.set_ylabel('value')
-    tp_angle.legend(['test', 'pred'], loc='upper right')
+            tp.plot(y_test[:, i])
+            tp.plot(y_pred[i])
+            tp.set_title('test-prediction '+str(output_names[i]))
+            tp.set_xlabel('frame')
+            tp.set_ylabel('value')
+            tp.legend(['test', 'pred'], loc='upper right')
 
-    mse_angle.plot(history.history['angle_pred_mean_squared_error'])
-    mse_angle.plot(history.history['val_angle_pred_mean_squared_error'])
-    mse_angle.set_title('angle MSE')
-    mse_angle.set_xlabel('epoch')
-    mse_angle.set_ylabel('error')
-    mse_angle.legend(['train', 'validation'], loc='upper right')
+            mse.plot(history.history[str(output_names[i])+'_mean_squared_error'])
+            mse.plot(history.history['val'+str(output_names[i])+'_mean_squared_error'])
+            mse.set_title(str(output_names[i])+' MSE')
+            mse.set_xlabel('epoch')
+            mse.set_ylabel('error')
+            mse.legend(['train', 'validation'], loc='upper right')
 
-    mae_angle.plot(history.history['angle_pred_loss'])
-    mae_angle.plot(history.history['val_angle_pred_loss'])
-    mae_angle.set_title('angle loss(MAE)')
-    mae_angle.set_xlabel('epoch')
-    mae_angle.set_ylabel('MAE')
-    mae_angle.legend(['train', 'test'], loc='upper right')
+            mae.plot(history.history[str(output_names[i])+'_pred_loss'])
+            mae.plot(history.history['val'+str(output_names[i])+'_angle_pred_loss'])
+            mae.set_title(str(output_names[i])+' loss(MAE)')
+            mae.set_xlabel('epoch')
+            mae.set_ylabel('MAE')
+            mae.legend(['train', 'test'], loc='upper right')
 
-    scatter_angle.scatter(y_test[:, 1], y_pred[1])
-    scatter_angle.set_title('scatter-plot angle')
-    scatter_angle.set_xlabel('thruth')
-    scatter_angle.set_ylabel('pred')
-    scatter_angle.set_xlim(-50, +50)
-    scatter_angle.set_ylim(-50, +50)
-
-    f_distance = plt.figure()
-    tp_distance = f_distance.add_subplot(2, 2, 1)
-    mse_distance = f_distance.add_subplot(2, 2, 2)
-    mae_distance = f_distance.add_subplot(2, 2, 3)
-    scatter_distance = f_distance.add_subplot(2, 2, 4)
-
-    tp_distance.plot(y_test[:, 0])
-    tp_distance.plot(y_pred[0])
-    tp_distance.set_title('test-prediction distance')
-    tp_distance.set_xlabel('frame')
-    tp_distance.set_ylabel('value')
-    tp_distance.legend(['test', 'pred'], loc='upper right')
-
-    mse_distance.plot(history.history['distance_pred_mean_squared_error'])
-    mse_distance.plot(history.history['val_distance_pred_mean_squared_error'])
-    mse_distance.set_title('distance MSE')
-    mse_distance.set_xlabel('epoch')
-    mse_distance.set_ylabel('error')
-    mse_distance.legend(['train', 'validation'], loc='upper right')
-
-    mae_distance.plot(history.history['distance_pred_loss'])
-    mae_distance.plot(history.history['val_distance_pred_loss'])
-    mae_distance.set_title('distance loss (MAE)')
-    mae_distance.set_xlabel('epoch')
-    mae_distance.set_ylabel('MAE')
-    mae_distance.legend(['train', 'test'], loc='upper right')
-
-    scatter_distance.scatter(y_test[:, 0], y_pred[0])
-    scatter_distance.set_title('scatter-plot distance')
-    scatter_distance.set_ylabel('pred')
-    scatter_distance.set_xlabel('thruth')
-    scatter_distance.set_xlim(0, +3)
-    scatter_distance.set_ylim(0, +3)
-
-    f_height = plt.figure()
-    tp_height = f_height.add_subplot(2, 2, 1)
-    mse_height = f_height.add_subplot(2, 2, 2)
-    mae_height = f_height.add_subplot(2, 2, 3)
-    scatter_height = f_height.add_subplot(2, 2, 4)
-
-    tp_height.plot(y_test[:, 2])
-    tp_height.plot(y_pred[2])
-    tp_height.set_title('test-prediction height')
-    tp_height.set_xlabel('frame')
-    tp_height.set_ylabel('value')
-    tp_height.legend(['test', 'pred'], loc='upper right')
-
-    mse_height.plot(history.history['height_pred_mean_squared_error'])
-    mse_height.plot(history.history['val_height_pred_mean_squared_error'])
-    mse_height.set_title('height MSE')
-    mse_height.set_xlabel('epoch')
-    mse_height.set_ylabel('error')
-    mse_height.legend(['train', 'validation'], loc='upper right')
-
-    mae_height.plot(history.history['height_pred_loss'])
-    mae_height.plot(history.history['val_height_pred_loss'])
-    mae_height.set_title('height loss (MAE)')
-    mae_height.set_xlabel('epoch')
-    mae_height.set_ylabel('MAE')
-    mae_height.legend(['train', 'test'], loc='upper right')
-
-    scatter_height.scatter(y_test[:, 2], y_pred[2])
-    scatter_height.set_title('scatter-plot height')
-    scatter_height.set_ylabel('pred')
-    scatter_height.set_xlabel('thruth')
-    scatter_height.set_xlim(-1, +1)
-    scatter_height.set_ylim(-1, +1)
-
+            scatter.scatter(y_test[:, i], y_pred[i])
+            scatter.set_title('scatter-plot '+str(output_names[i]))
+            scatter.set_xlabel('thruth')
+            scatter.set_ylabel('pred')
+            # scatter.set_xlim(-50, +50)
+            # scatter.set_ylim(-50, +50)
+            figures.append(fig)
     plt.show()
+
+    # fig_x = plt.figure()
+    # tp_x = fig_x.add_subplot(2, 2, 1)
+    # mse_x = fig_x.add_subplot(2, 2, 2)
+    # mae_x = fig_x.add_subplot(2, 2, 3)
+    # scatter_x = fig_x.add_subplot(2, 2, 4)
+    # # loss
+    # # x_pred_loss
+    # # y_pred_loss
+    # # z_pred_loss
+    # # yaw_pred_loss
+    # # x_pred_mean_squared_error
+    # # y_pred_mean_squared_error
+    # # z_pred_mean_squared_error
+    # # yaw_pred_mean_squared_error
+    # # val_loss
+    # # val_x_pred_loss
+    # # val_y_pred_loss
+    # # val_z_pred_loss
+    # # val_yaw_pred_loss
+    # # val_x_pred_mean_squared_error
+    # # val_y_pred_mean_squared_error
+    # # val_z_pred_mean_squared_error
+    # # val_yaw_pred_mean_squared_error
+    # tp_x.plot(y_test[:, 1])
+    # tp_x.plot(y_pred[1])
+    # tp_x.set_title('test-prediction angle')
+    # tp_x.set_xlabel('frame')
+    # tp_x.set_ylabel('value')
+    # tp_x.legend(['test', 'pred'], loc='upper right')
+    #
+    # mse_x.plot(history.history['angle_pred_mean_squared_error'])
+    # mse_x.plot(history.history['val_angle_pred_mean_squared_error'])
+    # mse_x.set_title('angle MSE')
+    # mse_x.set_xlabel('epoch')
+    # mse_x.set_ylabel('error')
+    # mse_x.legend(['train', 'validation'], loc='upper right')
+    #
+    # mae_x.plot(history.history['angle_pred_loss'])
+    # mae_x.plot(history.history['val_angle_pred_loss'])
+    # mae_x.set_title('angle loss(MAE)')
+    # mae_x.set_xlabel('epoch')
+    # mae_x.set_ylabel('MAE')
+    # mae_x.legend(['train', 'test'], loc='upper right')
+    #
+    # scatter_x.scatter(y_test[:, 1], y_pred[1])
+    # scatter_x.set_title('scatter-plot angle')
+    # scatter_x.set_xlabel('thruth')
+    # scatter_x.set_ylabel('pred')
+    # scatter_x.set_xlim(-50, +50)
+    # scatter_x.set_ylim(-50, +50)
+    #
+    # f_distance = plt.figure()
+    # tp_distance = f_distance.add_subplot(2, 2, 1)
+    # mse_distance = f_distance.add_subplot(2, 2, 2)
+    # mae_distance = f_distance.add_subplot(2, 2, 3)
+    # scatter_distance = f_distance.add_subplot(2, 2, 4)
+    #
+    # tp_distance.plot(y_test[:, 0])
+    # tp_distance.plot(y_pred[0])
+    # tp_distance.set_title('test-prediction distance')
+    # tp_distance.set_xlabel('frame')
+    # tp_distance.set_ylabel('value')
+    # tp_distance.legend(['test', 'pred'], loc='upper right')
+    #
+    # mse_distance.plot(history.history['distance_pred_mean_squared_error'])
+    # mse_distance.plot(history.history['val_distance_pred_mean_squared_error'])
+    # mse_distance.set_title('distance MSE')
+    # mse_distance.set_xlabel('epoch')
+    # mse_distance.set_ylabel('error')
+    # mse_distance.legend(['train', 'validation'], loc='upper right')
+    #
+    # mae_distance.plot(history.history['distance_pred_loss'])
+    # mae_distance.plot(history.history['val_distance_pred_loss'])
+    # mae_distance.set_title('distance loss (MAE)')
+    # mae_distance.set_xlabel('epoch')
+    # mae_distance.set_ylabel('MAE')
+    # mae_distance.legend(['train', 'test'], loc='upper right')
+    #
+    # scatter_distance.scatter(y_test[:, 0], y_pred[0])
+    # scatter_distance.set_title('scatter-plot distance')
+    # scatter_distance.set_ylabel('pred')
+    # scatter_distance.set_xlabel('thruth')
+    # scatter_distance.set_xlim(0, +3)
+    # scatter_distance.set_ylim(0, +3)
+    #
+    # f_height = plt.figure()
+    # tp_height = f_height.add_subplot(2, 2, 1)
+    # mse_height = f_height.add_subplot(2, 2, 2)
+    # mae_height = f_height.add_subplot(2, 2, 3)
+    # scatter_height = f_height.add_subplot(2, 2, 4)
+    #
+    # tp_height.plot(y_test[:, 2])
+    # tp_height.plot(y_pred[2])
+    # tp_height.set_title('test-prediction height')
+    # tp_height.set_xlabel('frame')
+    # tp_height.set_ylabel('value')
+    # tp_height.legend(['test', 'pred'], loc='upper right')
+    #
+    # mse_height.plot(history.history['height_pred_mean_squared_error'])
+    # mse_height.plot(history.history['val_height_pred_mean_squared_error'])
+    # mse_height.set_title('height MSE')
+    # mse_height.set_xlabel('epoch')
+    # mse_height.set_ylabel('error')
+    # mse_height.legend(['train', 'validation'], loc='upper right')
+    #
+    # mae_height.plot(history.history['height_pred_loss'])
+    # mae_height.plot(history.history['val_height_pred_loss'])
+    # mae_height.set_title('height loss (MAE)')
+    # mae_height.set_xlabel('epoch')
+    # mae_height.set_ylabel('MAE')
+    # mae_height.legend(['train', 'test'], loc='upper right')
+    #
+    # scatter_height.scatter(y_test[:, 2], y_pred[2])
+    # scatter_height.set_title('scatter-plot height')
+    # scatter_height.set_ylabel('pred')
+    # scatter_height.set_xlabel('thruth')
+    # scatter_height.set_xlim(-1, +1)
+    # scatter_height.set_ylim(-1, +1)
+
+    # plt.show()
 
 
 # class that is used to create video
@@ -139,7 +196,6 @@ class KerasVideoCreator:
         self.PADCOLOR = [255, 255, 255]
         self.drone_im = cv2.resize(cv2.imread("drone.png"), (0, 0), fx=0.08, fy=0.08)
         self.mean_dist = 1.5
-        print(self.preds)
 
     # function used to compose the frame
     def frame_composer(self, i):
@@ -162,7 +218,7 @@ class KerasVideoCreator:
         # Setting some variables
         font = cv2.FONT_HERSHEY_DUPLEX
         text_color = (0, 0, 0)
-        y_d = [self.preds[0][i], self.preds[1][i], self.preds[2][i],  math.degrees(self.preds[3][i])]
+        y_d = [self.preds[0][i], self.preds[1][i], self.preds[2][i], self.preds[3][i]]
         l_d = self.labels[i]
         # print(i)
         cv2.putText(im_final, "Frame: %s" % i, (900, 50), font, 0.5, text_color, 1, cv2.LINE_AA)
@@ -177,7 +233,7 @@ class KerasVideoCreator:
         cv2.putText(im_final, "Y P: %.3f" % (y_d[1]), (110, 25), font, 0.4, text_color, 1, cv2.LINE_AA)
         cv2.putText(im_final, "Z T: %.3f" % (l_d[2]), (210, 10), font, 0.4, text_color, 1, cv2.LINE_AA)
         cv2.putText(im_final, "Z P: %.3f" % (y_d[2]), (210, 25), font, 0.4, text_color, 1, cv2.LINE_AA)
-        cv2.putText(im_final, "Yaw T: %.3f" % (math.degrees(l_d[3])), (310, 10), font, 0.4, text_color, 1, cv2.LINE_AA)
+        cv2.putText(im_final, "Yaw T: %.3f" % (l_d[3]), (310, 10), font, 0.4, text_color, 1, cv2.LINE_AA)
         cv2.putText(im_final, "Yaw P: %.3f" % (y_d[3]), (310, 25), font, 0.4, text_color, 1, cv2.LINE_AA)
         cv2.putText(im_final, "Relative pose (X, Y)", (300, 50), font, 0.5, text_color, 1, cv2.LINE_AA)
 
@@ -287,12 +343,12 @@ class KerasVideoCreator:
         # draw heading
         arrow_len = 40
         # GT
-        l_angle_for_cv2 = -math.degrees(l_d[3]) + 270
-        y_angle_for_cv2 = -y_d[3] + 270
+        l_angle_for_cv2 = -l_d[3] + math.radians(270)
+        y_angle_for_cv2 = -y_d[3] + math.radians(270)
         cv2.arrowedLine(im_final,
                         gt_center,
-                        (int(gt_x + (arrow_len * math.cos(math.radians(l_angle_for_cv2)))),
-                         int(gt_y + (arrow_len * math.sin(math.radians(l_angle_for_cv2))))
+                        (int(gt_x + (arrow_len * math.cos(l_angle_for_cv2))),
+                         int(gt_y + (arrow_len * math.sin(l_angle_for_cv2)))
                          ),
                         color=gt_color,
                         thickness=2)
@@ -300,8 +356,9 @@ class KerasVideoCreator:
         # prediction
         cv2.arrowedLine(im_final,
                         pr_center,
-                        (int(pr_x + (arrow_len * math.cos(math.radians(y_angle_for_cv2)))),
-                         int(pr_y + (arrow_len * math.sin(math.radians(y_angle_for_cv2))))),
+                        (int(pr_x + (arrow_len * math.cos(y_angle_for_cv2))),
+                         int(pr_y + (arrow_len * math.sin(y_angle_for_cv2)))
+                         ),
                         color=pr_color,
                         thickness=2)
         # draw height
@@ -330,8 +387,8 @@ class KerasVideoCreator:
 
     def video_plot_creator(self):
         max_ = len(self.frame_list)
-        # for i in tqdm.tqdm(range(0, max_)):
-        for i in tqdm.tqdm(range(5000, 6000)):
+        for i in tqdm.tqdm(range(0, max_)):
+            # for i in tqdm.tqdm(range(5000, 6000)):
             self.frame_composer(i)
         self.video_writer.release()
         cv2.destroyAllWindows()
@@ -342,13 +399,6 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
     model, _, _ = model_creator(num_classes)
     batch_per_epoch = math.ceil(x_train.shape[0] / batch_size)
     gen = generator(x_train, y_train, batch_size)
-
-    # for i in range(150):
-    #     img_f = 255 - x_test[i].astype(np.uint8)
-    #     im_partial = cv2.cvtColor(img_f, cv2.COLOR_RGB2BGR)
-    #
-    #     cv2.imshow("frame",im_partial )
-    #     cv2.waitKey(10)
 
     history = model.fit_generator(generator=gen, validation_data=(x_test, [y_test[:, 0], y_test[:, 1], y_test[:, 2], y_test[:, 3]]), epochs=epochs, steps_per_epoch=batch_per_epoch)
 
@@ -366,22 +416,12 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
     y_pred = model.predict(x_test)
     print('Test loss:', scores[0])
     print('Test mse:', scores[1])
-    #
-    # r2 = metrics.r2_score(y_test, y_pred)
-    # print('Test r2:', r2)
 
-    # mean_y = np.mean(y_test)
-    # mean_array = np.full(y_test.shape, mean_y)
-    # mae = metrics.mean_absolute_error(y_test, mean_array)
-    # print("----- mean value regressor metric -----")
-    # print('Mean mae:', mae)
-    # vidcr_test = KerasVideoCreator(x_test=x_train, labels=y_train, preds=y_pred, title="./video/train_result.avi")
-    # vidcr_test.video_plot_creator()
     vidcr_test = KerasVideoCreator(x_test=x_test, labels=y_test, preds=y_pred, title="./video/test_result.avi")
     vidcr_test.video_plot_creator()
 
     # show some plots
-    # plot_results(history, y_pred, y_test)
+    plot_results(history, y_pred, y_test)
 
 
 # ------------------- Main ----------------------
