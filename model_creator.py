@@ -21,7 +21,7 @@ def model_creator(num_classes, show_summary=False, old=False):
                       metrics=['mse'])
         if show_summary:
             model.summary()
-    else:
+    else:  # NEW
         seq_model = create_sequential()
         model_input = Input((60, 107, 3))
         out_sequential = seq_model(model_input)
@@ -32,7 +32,8 @@ def model_creator(num_classes, show_summary=False, old=False):
         model = Model(inputs=model_input, outputs=[y_1, y_2, y_3, y_4])
         learn_rate = 0.001
         decay = 1e-6
-        opt = keras.optimizers.rmsprop(lr=learn_rate, decay=decay)
+        opt = keras.optimizers.Adam(lr=learn_rate, beta_1=0.9, beta_2=0.999, epsilon=None, decay=0.0, amsgrad=False)
+        # opt = keras.optimizers.rmsprop(lr=learn_rate, decay=decay)
         model.compile(loss='mean_absolute_error',
                       optimizer=opt,
                       metrics=['mse'])
@@ -63,13 +64,14 @@ def create_sequential():
 
 def data_augmentor(frame, label, noise=False):
     if np.random.choice([True, False]):
-        frame = np.fliplr(frame)
-        label[1] = -label[1]
+        frame = np.fliplr(frame)  # IMG
+        label[1] = -label[1]  # Y
+        label[3] = -label[3]  # Relative YAW
     return frame, label
 
 
 def generator(features, labels, batch_size, old=False):
-    if old:
+    if old:  # OLD
         while True:
             indexes = np.random.choice(np.arange(0, features.shape[0]), batch_size)
             batch_features = features[indexes]
@@ -77,7 +79,7 @@ def generator(features, labels, batch_size, old=False):
             for i in range(0, batch_features.shape[0]):
                 batch_features[i], batch_labels[i] = data_augmentor(batch_features[i], batch_labels[i])
             yield batch_features, [batch_labels[:, 0], batch_labels[:, 1], batch_labels[:, 2]]
-    else:
+    else:  # NEW
         while True:
             indexes = np.random.choice(np.arange(0, features.shape[0]), batch_size)
             batch_features = features[indexes]

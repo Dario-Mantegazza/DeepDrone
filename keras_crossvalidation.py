@@ -34,6 +34,7 @@ pickle_sections = {
     "22": 4
 }
 
+
 # Cnn method contains the definition, training, testing and plotting of the CNN model and dataset
 def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_train, y_test, y_train, i):
     print("k-fold:" + str(i))
@@ -102,7 +103,6 @@ def crossValidation(k_fold, batch_size, num_classes, epochs):
     if not files:
         print('No bag files found!')
         return None
-    # for i in tqdm.tqdm(range(0, k_fold)):
     for i in range(k_fold):  # test selection,
         x_test_list = []
         x_train_list = []

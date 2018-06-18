@@ -9,8 +9,15 @@ from matplotlib import pyplot as plt
 
 from model_creator import model_creator, generator
 
-
 # from model_creator import model_creator
+import inspect
+
+
+def isdebugging():
+    for frame in inspect.stack():
+        if frame[1].endswith("pydevd.py"):
+            return True
+    return False
 
 
 def plot_results(history, y_pred, y_test):
@@ -132,6 +139,7 @@ class KerasVideoCreator:
         self.PADCOLOR = [255, 255, 255]
         self.drone_im = cv2.resize(cv2.imread("drone.png"), (0, 0), fx=0.08, fy=0.08)
         self.mean_dist = 1.5
+        print(self.preds)
 
     # function used to compose the frame
     def frame_composer(self, i):
@@ -154,8 +162,9 @@ class KerasVideoCreator:
         # Setting some variables
         font = cv2.FONT_HERSHEY_DUPLEX
         text_color = (0, 0, 0)
-        y_d = [self.preds[0][i], self.preds[1][i], self.preds[2][i], self.preds[3][i]]
+        y_d = [self.preds[0][i], self.preds[1][i], self.preds[2][i],  math.degrees(self.preds[3][i])]
         l_d = self.labels[i]
+        # print(i)
         cv2.putText(im_final, "Frame: %s" % i, (900, 50), font, 0.5, text_color, 1, cv2.LINE_AA)
 
         # Top view
@@ -168,7 +177,7 @@ class KerasVideoCreator:
         cv2.putText(im_final, "Y P: %.3f" % (y_d[1]), (110, 25), font, 0.4, text_color, 1, cv2.LINE_AA)
         cv2.putText(im_final, "Z T: %.3f" % (l_d[2]), (210, 10), font, 0.4, text_color, 1, cv2.LINE_AA)
         cv2.putText(im_final, "Z P: %.3f" % (y_d[2]), (210, 25), font, 0.4, text_color, 1, cv2.LINE_AA)
-        cv2.putText(im_final, "Yaw T: %.3f" % (l_d[3]), (310, 10), font, 0.4, text_color, 1, cv2.LINE_AA)
+        cv2.putText(im_final, "Yaw T: %.3f" % (math.degrees(l_d[3])), (310, 10), font, 0.4, text_color, 1, cv2.LINE_AA)
         cv2.putText(im_final, "Yaw P: %.3f" % (y_d[3]), (310, 25), font, 0.4, text_color, 1, cv2.LINE_AA)
         cv2.putText(im_final, "Relative pose (X, Y)", (300, 50), font, 0.5, text_color, 1, cv2.LINE_AA)
 
@@ -276,9 +285,10 @@ class KerasVideoCreator:
         cv2.circle(im_final, center=pr_center, radius=5, color=pr_color, thickness=5)
 
         # draw heading
-        arrow_len=40
+        arrow_len = 40
         # GT
-        l_angle_for_cv2 = -l_d[3] + 90
+        l_angle_for_cv2 = -math.degrees(l_d[3]) + 270
+        y_angle_for_cv2 = -y_d[3] + 270
         cv2.arrowedLine(im_final,
                         gt_center,
                         (int(gt_x + (arrow_len * math.cos(math.radians(l_angle_for_cv2)))),
@@ -290,7 +300,8 @@ class KerasVideoCreator:
         # prediction
         cv2.arrowedLine(im_final,
                         pr_center,
-                        (pr_x, pr_y),
+                        (int(pr_x + (arrow_len * math.cos(math.radians(y_angle_for_cv2)))),
+                         int(pr_y + (arrow_len * math.sin(math.radians(y_angle_for_cv2))))),
                         color=pr_color,
                         thickness=2)
         # draw height
@@ -320,7 +331,7 @@ class KerasVideoCreator:
     def video_plot_creator(self):
         max_ = len(self.frame_list)
         # for i in tqdm.tqdm(range(0, max_)):
-        for i in tqdm.tqdm(range(1000, 2000)):
+        for i in tqdm.tqdm(range(5000, 6000)):
             self.frame_composer(i)
         self.video_writer.release()
         cv2.destroyAllWindows()
@@ -328,12 +339,17 @@ class KerasVideoCreator:
 
 # Cnn method contains the definition, training, testing and plotting of the CNN model and dataset
 def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_train, y_test, y_train):
-    # x_train = x_train.astype('float32')
-    # x_test = x_test.astype('float32')
-
     model, _, _ = model_creator(num_classes)
     batch_per_epoch = math.ceil(x_train.shape[0] / batch_size)
     gen = generator(x_train, y_train, batch_size)
+
+    # for i in range(150):
+    #     img_f = 255 - x_test[i].astype(np.uint8)
+    #     im_partial = cv2.cvtColor(img_f, cv2.COLOR_RGB2BGR)
+    #
+    #     cv2.imshow("frame",im_partial )
+    #     cv2.waitKey(10)
+
     history = model.fit_generator(generator=gen, validation_data=(x_test, [y_test[:, 0], y_test[:, 1], y_test[:, 2], y_test[:, 3]]), epochs=epochs, steps_per_epoch=batch_per_epoch)
 
     # Save model and weights    model = model_creator(num_classes)
@@ -346,6 +362,7 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
     # Score trained model.
     # TODO redo scores prints
     scores = model.evaluate(x_test, [y_test[:, 0], y_test[:, 1], y_test[:, 2], y_test[:, 3]], verbose=1)
+
     y_pred = model.predict(x_test)
     print('Test loss:', scores[0])
     print('Test mse:', scores[1])
@@ -358,7 +375,8 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
     # mae = metrics.mean_absolute_error(y_test, mean_array)
     # print("----- mean value regressor metric -----")
     # print('Mean mae:', mae)
-
+    # vidcr_test = KerasVideoCreator(x_test=x_train, labels=y_train, preds=y_pred, title="./video/train_result.avi")
+    # vidcr_test.video_plot_creator()
     vidcr_test = KerasVideoCreator(x_test=x_test, labels=y_test, preds=y_pred, title="./video/test_result.avi")
     vidcr_test.video_plot_creator()
 
@@ -371,10 +389,15 @@ def main():
     train = pd.read_pickle("./dataset/train.pickle").values
     validation = pd.read_pickle("./dataset/validation.pickle").values
 
-    # batch_size = 64
-    batch_size = 256
-    # epochs = 20
-    epochs = 1
+    if isdebugging():
+        print("debugging-settings")
+        batch_size = 128
+        epochs = 2
+    else:
+        # batch_size = 64
+        # epochs = 10
+        batch_size = 64
+        epochs = 2
 
     num_classes = 4
 
