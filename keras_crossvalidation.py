@@ -6,9 +6,9 @@ import numpy as np
 import pandas as pd
 from keras.utils import plot_model
 
-from tool_to_plot_data import history_data_plot_crossvalidation, plot_results_cross, KerasVideoCreator
 from dumb_regressor import dumb_regressor_result
 from model_creator import model_creator, generator
+from tool_to_plot_data import history_data_plot_crossvalidation, plot_results_cross, KerasVideoCreator
 
 pickle_sections = {
     "1": 1,
@@ -39,12 +39,10 @@ pickle_sections = {
 # Cnn method contains the definition, training, testing and plotting of the CNN model and dataset
 def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_train, y_test, y_train, i):
     print("k-fold:" + str(i))
-
-    # model, lr, decay = model_creator(num_classes, show_summary=False) # change dataset
-    model, lr, _ = model_creator(num_classes, show_summary=True, old=True)
+    model, lr, _ = model_creator(num_classes, show_summary=True)
     if i == 0:
-        plot_model(model.layers[1], to_file=save_dir + '/model_seq.png')
-        plot_model(model, to_file=save_dir + '/model_out.png')
+        # plot_model(model.layers[1], to_file=save_dir + '/model_seq.png')
+        # plot_model(model, to_file=save_dir + '/model_out.png')
         with open(save_dir + "/model_info.txt", "w+") as outfile:
             outfile.write("Hyperparameters\n")
             outfile.write("== == == == == == == == == == == ==\n")
@@ -56,10 +54,13 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
             model.summary(print_fn=lambda x: outfile.write(x + '\n'))
             outfile.close()
     batch_per_epoch = math.ceil(x_train.shape[0] / batch_size)
-    gen = generator(x_train, y_train, batch_size, old=True)
-    history = model.fit_generator(generator=gen, validation_data=(x_test, [y_test[:, 0], y_test[:, 1], y_test[:, 2], y_test[:, 3]]), epochs=epochs, steps_per_epoch=batch_per_epoch)
+    gen = generator(x_train, y_train, batch_size)
+    history = model.fit_generator(generator=gen,
+                                  validation_data=(x_test, [y_test[:, 0], y_test[:, 1], y_test[:, 2], y_test[:, 3]]),
+                                  epochs=epochs,
+                                  steps_per_epoch=batch_per_epoch)
 
-    # Save model and weights    model = model_creator(num_classes)
+    # Save model and weights
     if not os.path.isdir(save_dir):
         os.makedirs(save_dir)
     model_path = os.path.join(save_dir, model_name)
@@ -143,6 +144,7 @@ def main():
     batch_size = 64
     num_classes = 4
     epochs = 30
+    # epochs = 2
     crossValidation(k_fold, batch_size, num_classes, epochs)
 
 

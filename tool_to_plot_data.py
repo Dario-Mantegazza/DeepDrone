@@ -319,6 +319,7 @@ def plot_results_cross(history, y_pred, y_test, dumb_pred, save_dir, j):
 
 def history_data_plot_crossvalidation(history_list, dumb_list, save_dir):
     my_dpi = 96
+    mean_dumb = np.mean(np.array(dumb_list), axis=0)
     #TODO dop mean of dumb result socan be plotted
     with open(save_dir + "/mean_results.txt", "w+") as outfile:
         outfile.write("Mean Results across 5-fold crossvalidation\n")
@@ -340,18 +341,23 @@ def history_data_plot_crossvalidation(history_list, dumb_list, save_dir):
             fig=plt.figure(figsize=(1920 / my_dpi, 1080 / my_dpi), dpi=my_dpi)
             mse = fig.add_subplot(121)
             mae = fig.add_subplot(122)
+
             mse.plot(np.mean(np.array(mse_list), axis=0))
             mse.plot(np.mean(np.array(val_mse_list), axis=0))
+            mse.axhline(mean_dumb[i][0], c='r', ls='--')
             mse.set_title('mean '+str(output_names[i])+' MSE')
             mse.set_xlabel('epoch')
             mse.set_ylabel('error')
-            mse.legend(['train', 'validation'], loc='upper right')
+            mse.legend(['train', 'validation', 'mse dumb'], loc='upper right')
+
             mae.plot(np.mean(np.array(mae_list), axis=0))
             mae.plot(np.mean(np.array(val_mae_list), axis=0))
+            mae.axhline(mean_dumb[i][1], c='r', ls='--')
             mae.set_title('mean '+str(output_names[i])+' loss(MAE)')
             mae.set_xlabel('epoch')
             mae.set_ylabel('MAE')
-            mae.legend(['train', 'test'], loc='upper right')
+            mae.legend(['train', 'test', 'mae dumb'], loc='upper right')
+
             fig.savefig(save_dir + "/mean_"+str(output_names[i])+"_result.png")
         outfile.write("== == == == == == == == == == == ==\n")
         outfile.close()
