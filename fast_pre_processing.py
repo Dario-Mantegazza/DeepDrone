@@ -254,10 +254,22 @@ def pre_proc(bag_df_dict, data_id, f):
         quaternion_head = head_pose[['h_rot_x', 'h_rot_y', 'h_rot_z', 'h_rot_w']].values
         _, _, head_yaw = quat_to_eul(quaternion_head)
         _, _, bebop_yaw = quat_to_eul(quaternion_bebop)
-        relative_yaw = head_yaw - bebop_yaw
+        # relative_yaw = (head_yaw - bebop_yaw)
+        relative_yaw = (head_yaw - bebop_yaw - np.pi)
+        if relative_yaw < -np.pi:
+            relative_yaw += 2 * np.pi
         label_position = b_t_h[:-1, -1:].T[0]
         label = (label_position[0], label_position[1], label_position[2], relative_yaw)
         data_vec.append((img, label))
+    # angles = []
+    # for i in range(len(data_vec)):
+    #     asd__ = data_vec[i][1][3]
+    #     angles.append(asd__)
+    # plt.plot(angles)
+    # plt.show()
+    # plt.hist(angles, bins=180)
+    # plt.show()
+
     return data_vec
 
 

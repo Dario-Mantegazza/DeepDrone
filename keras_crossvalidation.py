@@ -6,7 +6,8 @@ import numpy as np
 import pandas as pd
 from keras.utils import plot_model
 
-from crossvalidation_plot_data import history_data_plot_crossvalidation, plot_results, KerasVideoCreator
+from tool_to_plot_data import history_data_plot_crossvalidation, plot_results_cross, KerasVideoCreator
+from dumb_regressor import dumb_regressor_result
 from model_creator import model_creator, generator
 
 pickle_sections = {
@@ -38,11 +39,9 @@ pickle_sections = {
 # Cnn method contains the definition, training, testing and plotting of the CNN model and dataset
 def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_train, y_test, y_train, i):
     print("k-fold:" + str(i))
-    # x_train = x_train.astype('float32')
-    # x_test = x_test.astype('float32')
 
     # model, lr, decay = model_creator(num_classes, show_summary=False) # change dataset
-    model, lr, decay = model_creator(num_classes, show_summary=True, old=True)
+    model, lr, _ = model_creator(num_classes, show_summary=True, old=True)
     if i == 0:
         plot_model(model.layers[1], to_file=save_dir + '/model_seq.png')
         plot_model(model, to_file=save_dir + '/model_out.png')
@@ -50,7 +49,6 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
             outfile.write("Hyperparameters\n")
             outfile.write("== == == == == == == == == == == ==\n")
             outfile.write("learning_rate:" + str(lr) + "\n")
-            outfile.write("decay:" + str(decay) + "\n")
             outfile.write("batch size:" + str(batch_size) + "\n")
             outfile.write("epochs:" + str(epochs) + "\n")
             outfile.write("== == == == == == == == == == == ==\n")
@@ -59,7 +57,7 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
             outfile.close()
     batch_per_epoch = math.ceil(x_train.shape[0] / batch_size)
     gen = generator(x_train, y_train, batch_size, old=True)
-    history = model.fit_generator(generator=gen, validation_data=(x_test, [y_test[:, 0], y_test[:, 1], y_test[:, 2]]), epochs=epochs, steps_per_epoch=batch_per_epoch)
+    history = model.fit_generator(generator=gen, validation_data=(x_test, [y_test[:, 0], y_test[:, 1], y_test[:, 2], y_test[:, 3]]), epochs=epochs, steps_per_epoch=batch_per_epoch)
 
     # Save model and weights    model = model_creator(num_classes)
     if not os.path.isdir(save_dir):
@@ -69,17 +67,17 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
     print('Saved trained model at %s ' % model_path)
 
     # Score trained model.
-    scores = model.evaluate(x_test, [y_test[:, 0], y_test[:, 1], y_test[:, 2]], verbose=1)
+    scores = model.evaluate(x_test, [y_test[:, 0], y_test[:, 1], y_test[:, 2], y_test[:, 3]], verbose=1)
     y_pred = model.predict(x_test)
     print('Test loss:', scores[0])
     print('Test mse:', scores[1])
 
     vidcr_test = KerasVideoCreator(x_test=x_test, labels=y_test, preds=y_pred, title=save_dir + "/result_model_" + str(i) + "/test_result.avi")
     vidcr_test.video_plot_creator()
-
+    dumb_metrics = dumb_regressor_result(x_test, x_train, y_test, y_train)
     # show some plots
-    plot_results(history, y_pred, y_test, save_dir, i)
-    return history.history
+    plot_results_cross(history, y_pred, y_test, dumb_metrics, save_dir, i)
+    return history.history, dumb_metrics
 
 
 def crossValidation(k_fold, batch_size, num_classes, epochs):
@@ -95,9 +93,9 @@ def crossValidation(k_fold, batch_size, num_classes, epochs):
         except OSError:
             if not os.path.isdir(save_path + "/result_model_" + str(i)):
                 raise
-    path = "./dataset/old/crossvalidation/"
+    path = "./dataset/crossvalidation/"
     files = [f for f in os.listdir(path) if f[-7:] == '.pickle']
-
+    dumb_list = []
     history_list = []
     save_dir = os.path.join(os.getcwd(), save_path)
     if not files:
@@ -133,16 +131,17 @@ def crossValidation(k_fold, batch_size, num_classes, epochs):
         print('x_train shape: ' + str(x_train.shape))
         print('train samples: ' + str(x_train.shape[0]))
         print('test samples:  ' + str(x_test.shape[0]))
-        history_list.append(CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_train, y_test, y_train, i))
-
-    history_data_plot_crossvalidation(history_list, save_dir)
+        history, dumb_results = CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_train, y_test, y_train, i)
+        history_list.append(history)
+        dumb_list.append(dumb_results)
+    history_data_plot_crossvalidation(history_list, dumb_list, save_dir)
 
 
 # ------------------- Main ----------------------
 def main():
     k_fold = 5
     batch_size = 64
-    num_classes = 3
+    num_classes = 4
     epochs = 30
     crossValidation(k_fold, batch_size, num_classes, epochs)
 

@@ -30,7 +30,7 @@ def model_creator(num_classes, show_summary=False, old=False):
         y_3 = (Dense(1, activation='linear', name="z_pred"))(out_sequential)
         y_4 = (Dense(1, activation='linear', name="yaw_pred"))(out_sequential)
         model = Model(inputs=model_input, outputs=[y_1, y_2, y_3, y_4])
-        learn_rate = 0.0001
+        learn_rate = 0.00005
         # decay = 1e-6
         opt = keras.optimizers.Adam(lr=learn_rate)
         # opt = keras.optimizers.rmsprop(lr=learn_rate, decay=decay)
