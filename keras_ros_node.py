@@ -56,6 +56,25 @@ class PID:
         return self.Kp * e + self.Kd * derivative + self.Ki * self.sum_e
 
 
+def jpeg2np(image, size=None):
+    """Converts a jpeg image in a 2d numpy array of RGB pixels and resizes it to the given size (if provided).
+      Args:
+        image: a compressed BGR jpeg image.
+        size: a tuple containing width and height, or None for no resizing.
+
+      Returns:
+        the raw, resized image as a 2d numpy array of RGB pixels.
+    """
+    compressed = np.fromstring(image, np.uint8)
+    raw = cv2.imdecode(compressed, cv2.IMREAD_COLOR)
+    # TODO eliminate conversion everywhere
+    img = cv2.cvtColor(raw, cv2.COLOR_BGR2RGB)
+    if size:
+        img = cv2.resize(img, size)
+
+    return img
+
+
 # Class of the trained model
 class TrainedModel:
     def __init__(self):
@@ -76,6 +95,7 @@ class TrainedModel:
         self.status = True
         self.real_z = 0.0
         self.target_z = 1.75
+        self.mean_dist = 1.5
         self.target_x = 1.437
 
     def stop_everything(self, msg):  # aggiungere msg anche se e' empty
@@ -89,10 +109,6 @@ class TrainedModel:
         clear_session()
         del self.model  # deletes the existing model
         self.model = keras.models.load_model("./saved_models/keras_bebop_trained_model.h5")
-        opt = keras.optimizers.rmsprop(lr=0.0001, decay=1e-6)
-        self.model.compile(loss='mean_squared_error',
-                           optimizer=opt,
-                           metrics=['accuracy'])
         self.model._make_predict_function()
         self.graph = tf.get_default_graph()
         self.camera_feed = rospy.Subscriber(self.pub_name + '/image_raw/compressed', CompressedImage, self.predict_)
@@ -101,21 +117,20 @@ class TrainedModel:
         message = Twist()
         # message.linear.z = self.kp_lin_z * (y[2])
         message.linear.z = self.kp_lin_z * (self.target_z - self.real_z)
-        message.linear.x = self.kp_lin_x * (y[0] - self.target_x )
+        message.linear.x = self.kp_lin_x * (y[0] - self.target_x)
         message.angular.z = self.kp_ang_z * y[1]
         if self.status:
             self.pub_vel.publish(message)
 
     # predict call back, recieves the message and produces an image representing the output
     def predict_(self, msg_data):
-        data = 1 - array(Image.open(io.BytesIO(msg_data.data)))
-        scaled_fr = cv2.resize(data, (107, 60))
-        x_data = np.vstack(scaled_fr[:]).astype(np.float)
+        img = 255 - jpeg2np(msg_data.data, (107, 60))
+        x_data = np.vstack(img[:]).astype(np.float32)
         x_data = np.reshape(x_data, (-1, 60, 107, 3))
         with self.graph.as_default():
             y_pred = self.model.predict(x_data)
-        self.update_control(y_pred[0])
-        self.showResult(x_data[0], y_pred[0])
+        self.update_control(np.reshape(y_pred,-1))
+        self.showResult(x_data[0],np.reshape(y_pred,-1))
 
     # method that creates and show the image of the cnn results
     def showResult(self, frame, y_d):
@@ -138,17 +153,19 @@ class TrainedModel:
         font = cv2.FONT_HERSHEY_DUPLEX
         text_color = (0, 0, 0)
 
-        cv2.putText(im_final, "On-line regressor", (900, 50), font, 0.5, text_color, 1, cv2.LINE_AA)
-        cv2.putText(im_final, "Status:"+str(self.status), (900, 70), font, 0.5, text_color, 1, cv2.LINE_AA)
-        #
+        cv2.putText(im_final, "Status:" + str(self.status), (900, 70), font, 0.5, text_color, 1, cv2.LINE_AA)
+
+        cv2.putText(im_final, "Live", (900, 50), font, 0.5, text_color, 1, cv2.LINE_AA)
+
         # Top view
         triangle_color = (255, 229, 204)
-        angle_deg = y_d[1]
 
         # Text Information
-        cv2.putText(im_final, "Distance P: %.3f" % (y_d[0]), (20, 40), font, 0.5, text_color, 1, cv2.LINE_AA)
-        cv2.putText(im_final, "Angle P: %.3f" % angle_deg, (220, 40), font, 0.5, text_color, 1, cv2.LINE_AA)
-        cv2.putText(im_final, "Delta z P: %.3f" % (y_d[2]), (400, 40), font, 0.5, text_color, 1, cv2.LINE_AA)
+        cv2.putText(im_final, "X P: %.3f" % (y_d[0]), (10, 25), font, 0.4, text_color, 1, cv2.LINE_AA)
+        cv2.putText(im_final, "Y P: %.3f" % (y_d[1]), (110, 25), font, 0.4, text_color, 1, cv2.LINE_AA)
+        cv2.putText(im_final, "Z P: %.3f" % (y_d[2]), (210, 25), font, 0.4, text_color, 1, cv2.LINE_AA)
+        cv2.putText(im_final, "Yaw P: %.3f" % (y_d[3]), (310, 25), font, 0.4, text_color, 1, cv2.LINE_AA)
+        cv2.putText(im_final, "Relative pose (X, Y)", (300, 50), font, 0.5, text_color, 1, cv2.LINE_AA)
 
         # draw legend
         pr_color = (255, 0, 0)
@@ -167,9 +184,9 @@ class TrainedModel:
                              [t_x, t_y],
                              [int(t_x + (math.sin(math.radians(camera_fov / 2)) * triangle_side_len)), int(t_y - (math.cos(math.radians(camera_fov / 2)) * triangle_side_len))]], np.int32)
         cv2.fillConvexPoly(im_final, triangle, color=triangle_color, lineType=1)
-        scale_factor = (math.cos(math.radians(camera_fov / 2)) * triangle_side_len) / (2 * 1.437)
+        scale_factor = (math.cos(math.radians(camera_fov / 2)) * triangle_side_len) / (2 * self.mean_dist)
 
-        cv2.putText(im_final, "Relative pose", (300, 90), font, 0.5, text_color, 1, cv2.LINE_AA)
+        # vertical axis
         cv2.line(im_final,
                  (30, int(t_y - (math.cos(math.radians(camera_fov / 2)) * triangle_side_len))),
                  (30, t_y),
@@ -181,13 +198,13 @@ class TrainedModel:
                  (30, int((t_y - (math.cos(math.radians(camera_fov / 2)) * triangle_side_len)))),
                  color=(0, 0, 0),
                  thickness=1)
-        cv2.putText(im_final, "2.8 m", (31, int((t_y - (math.cos(math.radians(camera_fov / 2)) * triangle_side_len)))), font, 0.4, text_color, 1, cv2.LINE_AA)
+        cv2.putText(im_final, "%.1f m" % (self.mean_dist * 2), (31, int((t_y - (math.cos(math.radians(camera_fov / 2)) * triangle_side_len)))), font, 0.4, text_color, 1, cv2.LINE_AA)
         cv2.line(im_final,
                  (15, int((t_y - ((math.cos(math.radians(camera_fov / 2)) * triangle_side_len) / 2)))),
                  (30, int((t_y - ((math.cos(math.radians(camera_fov / 2)) * triangle_side_len) / 2)))),
                  color=(0, 0, 0),
                  thickness=1)
-        cv2.putText(im_final, "1.4 m", (31, int((t_y + 3 - ((math.cos(math.radians(camera_fov / 2)) * triangle_side_len) / 2)))), font, 0.4, text_color, 1, cv2.LINE_AA)
+        cv2.putText(im_final, "%.1f m" % self.mean_dist, (31, int((t_y + 3 - ((math.cos(math.radians(camera_fov / 2)) * triangle_side_len) / 2)))), font, 0.4, text_color, 1, cv2.LINE_AA)
         cv2.line(im_final,
                  (15, t_y),
                  (30, t_y),
@@ -195,16 +212,71 @@ class TrainedModel:
                  thickness=1)
         cv2.putText(im_final, "0 m", (31, t_y + 5), font, 0.4, text_color, 1, cv2.LINE_AA)
 
-        # draw Pred
-        pr_center = (int((t_x + scale_factor * (math.sin(math.radians(y_d[1])) * y_d[0]))),
-                     int((t_y - scale_factor * (math.cos(math.radians(y_d[1])) * y_d[0]))))
+        # horizontal axis
+        cv2.line(im_final,
+                 (int(t_x - (math.sin(math.radians(camera_fov / 2)) * triangle_side_len)), 90),
+                 (int(t_x + (math.sin(math.radians(camera_fov / 2)) * triangle_side_len)), 90),
+                 color=(0, 0, 0),
+                 thickness=1)
+
+        cv2.line(im_final,
+                 (int(t_x - (math.sin(math.radians(camera_fov / 2)) * triangle_side_len)), 75),
+                 (int(t_x - (math.sin(math.radians(camera_fov / 2)) * triangle_side_len)), 90),
+                 color=(0, 0, 0),
+                 thickness=1)
+        cv2.line(im_final,
+                 (int(t_x - (math.sin(math.radians(camera_fov / 2)) * triangle_side_len) / 2), 75),
+                 (int(t_x - (math.sin(math.radians(camera_fov / 2)) * triangle_side_len) / 2), 90),
+                 color=(0, 0, 0),
+                 thickness=1)
+        cv2.line(im_final,
+                 (t_x, 75),
+                 (t_x, 90),
+                 color=(0, 0, 0),
+                 thickness=1)
+        cv2.line(im_final,
+                 (int(t_x + (math.sin(math.radians(camera_fov / 2)) * triangle_side_len) / 2), 75),
+                 (int(t_x + (math.sin(math.radians(camera_fov / 2)) * triangle_side_len) / 2), 90),
+                 color=(0, 0, 0),
+                 thickness=1)
+        cv2.line(im_final,
+                 (int(t_x + (math.sin(math.radians(camera_fov / 2)) * triangle_side_len)), 75),
+                 (int(t_x + (math.sin(math.radians(camera_fov / 2)) * triangle_side_len)), 90),
+                 color=(0, 0, 0),
+                 thickness=1)
+        cv2.putText(im_final, "+%.1f m" % (self.mean_dist * 2), (int(t_x - 10 - scale_factor * (self.mean_dist * 2)), 70), font, 0.4, text_color, 1, cv2.LINE_AA)
+        cv2.putText(im_final, "+%.1f m" % self.mean_dist, (int(t_x - 10 - scale_factor * self.mean_dist), 70), font, 0.4, text_color, 1, cv2.LINE_AA)
+        cv2.putText(im_final, "0 m", (t_x - 4, 70), font, 0.4, text_color, 1, cv2.LINE_AA)
+        cv2.putText(im_final, "-%.1f m" % self.mean_dist, (int(t_x + scale_factor * self.mean_dist), 70), font, 0.4, text_color, 1, cv2.LINE_AA)
+        cv2.putText(im_final, "-%.1f m" % (self.mean_dist * 2), (int(t_x - 5 + scale_factor * (self.mean_dist * 2)), 70), font, 0.4, text_color, 1, cv2.LINE_AA)
+
+        # draw GT point
+
+        # draw gt arrow
+        arrow_len = 40
+        # GT
+        y_angle_for_cv2 = -y_d[3] + np.pi / 2
+
+        # draw Pred point
+        pr_x = int((t_x - scale_factor * y_d[1]))
+        pr_y = int((t_y - scale_factor * y_d[0]))
+        pr_center = (pr_x,
+                     pr_y)
         cv2.circle(im_final, center=pr_center, radius=5, color=pr_color, thickness=5)
 
+        # prediction arrow
+        cv2.arrowedLine(im_final,
+                        pr_center,
+                        (int(pr_x + (arrow_len * math.cos(y_angle_for_cv2))),
+                         int(pr_y + (arrow_len * math.sin(y_angle_for_cv2)))
+                         ),
+                        color=pr_color,
+                        thickness=2)
         # draw height
 
         h_x = 640
         h_y = 90
-        cv2.putText(im_final, "Delta Height", (h_x, h_y), font, 0.5, text_color, 1, cv2.LINE_AA)
+        cv2.putText(im_final, "Relative Z", (h_x, h_y), font, 0.5, text_color, 1, cv2.LINE_AA)
         cv2.putText(im_final, "+1 m", (h_x + 65, h_y + 15), font, 0.4, text_color, 1, cv2.LINE_AA)
         cv2.putText(im_final, "0 m", (h_x + 65, h_y + 164), font, 0.4, text_color, 1, cv2.LINE_AA)
         cv2.putText(im_final, "-1 m", (h_x + 65, h_y + 312), font, 0.4, text_color, 1, cv2.LINE_AA)
@@ -215,8 +287,9 @@ class TrainedModel:
         h_c_y = h_y + 160
 
         h_scale_factor = 300 / 2
+
         pr_h_center = (h_c_x,
-                       int((h_c_y - h_scale_factor * y_d[2])))
+                       int((h_c_y - h_scale_factor *y_d[2])))
         cv2.circle(im_final, center=pr_h_center, radius=5, color=pr_color, thickness=5)
         cv2.imshow("Display window", im_final)
         cv2.waitKey(1)
