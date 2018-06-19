@@ -315,12 +315,13 @@ def plot_results_cross(history, y_pred, y_test, dumb_pred, save_dir, j):
         sct.legend(['diagonal', 'datapoints'], loc='upper left')
 
         fig.savefig(save_dir + "/result_model_" + str(j) + "/" + str(output_names[i]) + ".png")
+    plt.close('all')
 
 
 def history_data_plot_crossvalidation(history_list, dumb_list, save_dir):
     my_dpi = 96
     mean_dumb = np.mean(np.array(dumb_list), axis=0)
-    #TODO dop mean of dumb result socan be plotted
+    # TODO dop mean of dumb result socan be plotted
     with open(save_dir + "/mean_results.txt", "w+") as outfile:
         outfile.write("Mean Results across 5-fold crossvalidation\n")
         outfile.write("== == == == == == == == == == == ==\n")
@@ -338,26 +339,29 @@ def history_data_plot_crossvalidation(history_list, dumb_list, save_dir):
             outfile.write(str(output_names[i]) + "_mse:          %.3f" % (np.mean(mse_list)) + '\n')
             outfile.write("val_" + str(output_names[i]) + "_mae:      %.3f" % (np.mean(val_mae_list)) + '\n')
             outfile.write("val_" + str(output_names[i]) + "_mse:      %.3f" % (np.mean(val_mse_list)) + '\n')
-            fig=plt.figure(figsize=(1920 / my_dpi, 1080 / my_dpi), dpi=my_dpi)
+            fig = plt.figure(figsize=(1920 / my_dpi, 1080 / my_dpi), dpi=my_dpi)
             mse = fig.add_subplot(121)
             mae = fig.add_subplot(122)
 
             mse.plot(np.mean(np.array(mse_list), axis=0))
             mse.plot(np.mean(np.array(val_mse_list), axis=0))
             mse.axhline(mean_dumb[i][0], c='r', ls='--')
-            mse.set_title('mean '+str(output_names[i])+' MSE')
+            mse.set_title('mean ' + str(output_names[i]) + ' MSE')
             mse.set_xlabel('epoch')
             mse.set_ylabel('error')
+            mse.set_ylim(0, (2 * mean_dumb[i][0]))
             mse.legend(['train', 'validation', 'mse dumb'], loc='upper right')
 
             mae.plot(np.mean(np.array(mae_list), axis=0))
             mae.plot(np.mean(np.array(val_mae_list), axis=0))
             mae.axhline(mean_dumb[i][1], c='r', ls='--')
-            mae.set_title('mean '+str(output_names[i])+' loss(MAE)')
+            mae.set_title('mean ' + str(output_names[i]) + ' loss(MAE)')
             mae.set_xlabel('epoch')
             mae.set_ylabel('MAE')
+            mae.set_ylim(0, (2 * mean_dumb[i][1]))
             mae.legend(['train', 'test', 'mae dumb'], loc='upper right')
 
-            fig.savefig(save_dir + "/mean_"+str(output_names[i])+"_result.png")
+            fig.savefig(save_dir + "/mean_" + str(output_names[i]) + "_result.png")
         outfile.write("== == == == == == == == == == == ==\n")
         outfile.close()
+    plt.close('all')
