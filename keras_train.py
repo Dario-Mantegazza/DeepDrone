@@ -1,4 +1,3 @@
-import inspect
 import math
 import os
 
@@ -8,13 +7,8 @@ import pandas as pd
 from tool_to_plot_data import KerasVideoCreator, plot_results
 from dumb_regressor import dumb_regressor_result
 from model_creator import model_creator, generator
-
-
-def isdebugging():
-    for frame in inspect.stack():
-        if frame[1].endswith("pydevd.py"):
-            return True
-    return False
+from global_parameters import *
+from utils import isdebugging
 
 
 # Cnn method contains the definition, training, testing and plotting of the CNN model and dataset
@@ -65,13 +59,13 @@ def main():
     # The data, split between train and test sets:
     x_train = 255 - train[:, 0]  # otherwise is inverted
     x_train = np.vstack(x_train[:]).astype(np.float32)
-    x_train = np.reshape(x_train, (-1, 60, 107, 3))
+    x_train = np.reshape(x_train, (-1, image_height, image_width, 3))
     y_train = train[:, 1]
     y_train = np.asarray([np.asarray(sublist) for sublist in y_train])
 
     x_test = 255 - validation[:, 0]
     x_test = np.vstack(x_test[:]).astype(np.float32)
-    x_test = np.reshape(x_test, (-1, 60, 107, 3))
+    x_test = np.reshape(x_test, (-1, image_height, image_width, 3))
     y_test = validation[:, 1]
     y_test = np.asarray([np.asarray(sublist) for sublist in y_test])
 

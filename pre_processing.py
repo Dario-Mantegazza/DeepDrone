@@ -17,83 +17,7 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.ticker import MultipleLocator
 from scipy.spatial import distance
 from transforms3d.derivations.quaternions import quat2mat
-
-# ------ Global Dictionaries ------
-
-bag_end_cut = {
-    "1": 3150,
-    "2": 7000,
-    "3": 390,
-    "4": 1850,
-    "5": 3840,
-    "6": 1650,
-    "7": 2145,
-    "8": 595,
-    "9": 1065,
-    "10": 2089,
-    "11": 1370,
-    "12": 5600,
-    "13": 8490,
-    "14": 4450,
-    "15": 7145,
-    "16": 3500,
-    "17": 1400,
-    "18": 1300,
-    "19": 1728,
-    "20": 5070,
-    "21": 11960,
-    "22": 5200
-}
-
-bag_start_cut = {
-    "1": 0,
-    "2": 0,
-    "3": 0,
-    "4": 0,
-    "5": 0,
-    "6": 0,
-    "7": 58,
-    "8": 63,
-    "9": 75,
-    "10": 50,
-    "11": 0,
-    "12": 470,
-    "13": 40,
-    "14": 50,
-    "15": 0,
-    "16": 0,
-    "17": 0,
-    "18": 0,
-    "19": 0,
-    "20": 220,
-    "21": 0,
-    "22": 222
-}
-bag_file_path = {
-    "1": "./bagfiles/train/",
-    "2": "./bagfiles/train/",
-    "3": "./bagfiles/validation/",
-    "4": "./bagfiles/validation/",
-    "5": "./bagfiles/train/",
-    "6": "./bagfiles/validation/",
-    "7": "./bagfiles/train/",
-    "8": "./bagfiles/train/",
-    "9": "./bagfiles/train/",
-    "10": "./bagfiles/train/",
-    "11": "./bagfiles/train/",
-    "12": "./bagfiles/train/",
-    "13": "./bagfiles/train/",
-    "14": "./bagfiles/train/",
-    "15": "./bagfiles/validation/",
-    "16": "./bagfiles/train/",
-    "17": "./bagfiles/train/",
-    "18": "./bagfiles/train/",
-    "19": "./bagfiles/train/",
-    "20": "./bagfiles/train/",
-    "21": "./bagfiles/train/",
-    "22": "./bagfiles/validation/"
-}
-
+from global_parameters import *
 
 # ------ Classes ------
 
@@ -127,7 +51,7 @@ class DatasetCreator:
         reshaped_fr = np.reshape(np.array(frame, dtype=np.int64), (480, 856, 3))
         reshaped_fr = reshaped_fr.astype(np.uint8)
 
-        scaled_fr = cv2.resize(reshaped_fr, (107, 60))
+        scaled_fr = cv2.resize(reshaped_fr, (image_width, image_height))
 
         r_t_h = matrix_method(self.b_position[i], self.b_orientation[i], self.h_position[i], self.h_orientation[i])
         horizontal_angle = -math.degrees(math.atan2(r_t_h[1, 3], r_t_h[0, 3]))
@@ -455,7 +379,6 @@ def bag_to_pickle(f):
                          f=f)
     datacr.save_dataset(flag_train="cross", title=f[:-4] + ".pickle")
     print("\nCompleted pickle #" + str(f))
-
 
 
 # ------ Main ------

@@ -165,3 +165,14 @@ for i in tqdm.tqdm(range(0, max_)):
     frame_composer(i)
 video_writer.release()
 cv2.destroyAllWindows()
+
+
+import numpy as np
+import cv2
+
+asd =np.ones((480, 856, 3),dtype=np.uint8)*145
+video_writer=cv2.VideoWriter("asd.avi",cv2.VideoWriter_fourcc(*'XVID'),30,(856,480 ))
+for i in range(300):
+    video_writer.write(asd)
+video_writer.release()
+cv2.destroyAllWindows()

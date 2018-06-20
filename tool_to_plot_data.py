@@ -4,8 +4,7 @@ import cv2
 import numpy as np
 import tqdm
 from matplotlib import pyplot as plt
-
-output_names = ["x_pred", "y_pred", "z_pred", "yaw_pred"]
+from global_parameters import *
 
 
 # class that is used to create video

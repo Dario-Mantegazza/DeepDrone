@@ -16,7 +16,7 @@ from sensor_msgs.msg import CompressedImage
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Empty
 from nav_msgs.msg import Odometry
-
+from global_parameters import *
 # -------- some global variables -----------
 distance_tolerance = 0.5
 tolerance = 0.001
@@ -56,23 +56,6 @@ class PID:
         return self.Kp * e + self.Kd * derivative + self.Ki * self.sum_e
 
 
-def jpeg2np(image, size=None):
-    """Converts a jpeg image in a 2d numpy array of RGB pixels and resizes it to the given size (if provided).
-      Args:
-        image: a compressed BGR jpeg image.
-        size: a tuple containing width and height, or None for no resizing.
-
-      Returns:
-        the raw, resized image as a 2d numpy array of RGB pixels.
-    """
-    compressed = np.fromstring(image, np.uint8)
-    raw = cv2.imdecode(compressed, cv2.IMREAD_COLOR)
-    # TODO eliminate conversion everywhere
-    img = cv2.cvtColor(raw, cv2.COLOR_BGR2RGB)
-    if size:
-        img = cv2.resize(img, size)
-
-    return img
 
 
 # Class of the trained model
@@ -124,9 +107,9 @@ class TrainedModel:
 
     # predict call back, recieves the message and produces an image representing the output
     def predict_(self, msg_data):
-        img = 255 - jpeg2np(msg_data.data, (107, 60))
+        img = 255 - jpeg2np(msg_data.data, (image_width, image_height))
         x_data = np.vstack(img[:]).astype(np.float32)
-        x_data = np.reshape(x_data, (-1, 60, 107, 3))
+        x_data = np.reshape(x_data, (-1, image_height, image_width, 3))
         with self.graph.as_default():
             y_pred = self.model.predict(x_data)
         self.update_control(np.reshape(y_pred,-1))

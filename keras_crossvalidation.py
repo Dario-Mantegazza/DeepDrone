@@ -4,36 +4,11 @@ from datetime import datetime
 
 import numpy as np
 import pandas as pd
-from keras.utils import plot_model
+from global_parameters import *
 
 from dumb_regressor import dumb_regressor_result
 from model_creator import model_creator, generator
 from tool_to_plot_data import history_data_plot_crossvalidation, plot_results_cross, KerasVideoCreator
-
-pickle_sections = {
-    "1": 1,
-    "2": 0,
-    "3": 3,
-    "4": 4,
-    "5": 4,
-    "6": 3,
-    "7": 2,
-    "8": 0,
-    "9": 1,
-    "10": 3,
-    "11": 4,
-    "12": 2,
-    "13": 3,
-    "14": 4,
-    "15": 1,
-    "16": 0,
-    "17": 2,
-    "18": 2,
-    "19": 2,
-    "20": 1,
-    "21": 0,
-    "22": 4
-}
 
 
 # Cnn method contains the definition, training, testing and plotting of the CNN model and dataset

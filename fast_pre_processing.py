@@ -1,91 +1,16 @@
 # ------ Import ------
-import math
 import os
 from multiprocessing import Pool
 
-import cv2
 import numpy as np
 import pandas as pd
 import rosbag
-import tqdm as tqdm
 import tf
-from matplotlib import pyplot as plt
+import tqdm as tqdm
 from transforms3d.derivations.quaternions import quat2mat
 
-bag_end_cut = {
-    "1": 3150,
-    "2": 7000,
-    "3": 390,
-    "4": 1850,
-    "5": 3840,
-    "6": 1650,
-    "7": 2145,
-    "8": 595,
-    "9": 1065,
-    "10": 2089,
-    "11": 1370,
-    "12": 5600,
-    "13": 8490,
-    "14": 4450,
-    "15": 7145,
-    "16": 3500,
-    "17": 1400,
-    "18": 1300,
-    "19": 1728,
-    "20": 5070,
-    "21": 11960,
-    "22": 5200
-}
-
-bag_start_cut = {
-    "1": 0,
-    "2": 0,
-    "3": 0,
-    "4": 0,
-    "5": 0,
-    "6": 0,
-    "7": 58,
-    "8": 63,
-    "9": 75,
-    "10": 50,
-    "11": 0,
-    "12": 470,
-    "13": 40,
-    "14": 50,
-    "15": 0,
-    "16": 0,
-    "17": 0,
-    "18": 0,
-    "19": 0,
-    "20": 220,
-    "21": 0,
-    "22": 222
-}
-
-bag_file_path = {
-    "1": "./bagfiles/train/",
-    "2": "./bagfiles/train/",
-    "3": "./bagfiles/validation/",
-    "4": "./bagfiles/validation/",
-    "5": "./bagfiles/train/",
-    "6": "./bagfiles/validation/",
-    "7": "./bagfiles/train/",
-    "8": "./bagfiles/train/",
-    "9": "./bagfiles/train/",
-    "10": "./bagfiles/train/",
-    "11": "./bagfiles/train/",
-    "12": "./bagfiles/train/",
-    "13": "./bagfiles/train/",
-    "14": "./bagfiles/train/",
-    "15": "./bagfiles/validation/",
-    "16": "./bagfiles/train/",
-    "17": "./bagfiles/train/",
-    "18": "./bagfiles/train/",
-    "19": "./bagfiles/train/",
-    "20": "./bagfiles/train/",
-    "21": "./bagfiles/train/",
-    "22": "./bagfiles/validation/"
-}
+from global_parameters import *
+from utils import jpeg2np, time_conversion_to_nano, find_nearest
 
 
 # This class handles the dataset creation.
@@ -113,10 +38,42 @@ class DatasetCreator:
             return None
 
 
-# method to convert time
+# function that convert rospose to homogeneus matrix
+def rospose2homogmat(p, q):
+    w_r_o = np.array(quat2mat(q)).astype(np.float64)  # rotation matrix of object wrt world frame
+    tempmat = np.hstack((w_r_o, np.expand_dims(p, axis=1)))
+    w_t_o = np.vstack((tempmat, [0, 0, 0, 1]))
+    return w_t_o
 
-def time_conversion_to_nano(sec, nano):
-    return (sec * 1000 * 1000 * 1000) + nano
+
+# method to convert quaternion orientation to euler orientation
+def quat_to_eul(q):
+    euler = tf.transformations.euler_from_quaternion(q)  # roll 0, pitch 1, yaw 2
+    return euler
+
+
+def change_frame_reference(pose_bebop, pose_head):
+    """Change frame of reference of pose head from World to bebop.
+          Args:
+            pose_bebop: pose of the bebop
+            pose_head: pose of the head
+
+          Returns:
+            the new pose for head:
+                bebop
+                    T
+                     head
+    """
+    position_bebop = pose_bebop[['b_pos_x', 'b_pos_y', 'b_pos_z']].values
+    quaternion_bebop = pose_bebop[['b_rot_w', 'b_rot_x', 'b_rot_y', 'b_rot_z']].values
+    position_head = pose_head[['h_pos_x', 'h_pos_y', 'h_pos_z']].values
+    quaternion_head = pose_head[['h_rot_w', 'h_rot_x', 'h_rot_y', 'h_rot_z']].values
+    w_t_b = rospose2homogmat(position_bebop, quaternion_bebop)
+    w_t_h = rospose2homogmat(position_head, quaternion_head)
+    b_t_w = np.linalg.inv(w_t_b)
+    b_t_h = np.matmul(b_t_w, w_t_h)
+
+    return b_t_h
 
 
 def get_bag_data_pandas(bag):
@@ -162,74 +119,12 @@ def get_bag_data_pandas(bag):
         secs = t.secs
         nsecs = t.nsecs
         c_id.append(time_conversion_to_nano(secs, nsecs))
-        img = jpeg2np(image_frame.data, (107, 60))
+        img = jpeg2np(image_frame.data, (image_width, image_height))
         camera_frame = (lambda x: {'vid': x})(img)
         c_v.append(camera_frame)
     camera_df = pd.DataFrame(data=c_v, index=c_id, columns=c_v[0].keys())
     bag.close()
     return {'head_df': head_df, 'bebop_df': bebop_df, 'camera_df': camera_df}
-
-
-# function that convert rospose to homogeneus matrix
-def rospose2homogmat(p, q):
-    w_r_o = np.array(quat2mat(q)).astype(np.float64)  # rotation matrix of object wrt world frame
-    tempmat = np.hstack((w_r_o, np.expand_dims(p, axis=1)))
-    w_t_o = np.vstack((tempmat, [0, 0, 0, 1]))
-    return w_t_o
-
-
-def change_frame_reference(pose_bebop, pose_head):
-    """Change frame of reference of pose head from World to bebop.
-          Args:
-            pose_bebop: pose of the bebop
-            pose_head: pose of the head
-
-          Returns:
-            the new pose for head:
-                bebop
-                    T
-                     head
-    """
-    position_bebop = pose_bebop[['b_pos_x', 'b_pos_y', 'b_pos_z']].values
-    quaternion_bebop = pose_bebop[['b_rot_w', 'b_rot_x', 'b_rot_y', 'b_rot_z']].values
-    position_head = pose_head[['h_pos_x', 'h_pos_y', 'h_pos_z']].values
-    quaternion_head = pose_head[['h_rot_w', 'h_rot_x', 'h_rot_y', 'h_rot_z']].values
-    w_t_b = rospose2homogmat(position_bebop, quaternion_bebop)
-    w_t_h = rospose2homogmat(position_head, quaternion_head)
-    b_t_w = np.linalg.inv(w_t_b)
-    b_t_h = np.matmul(b_t_w, w_t_h)
-
-    return b_t_h
-
-
-# find nearest value in array
-def find_nearest(array, value):
-    return (np.abs(array - value)).argmin()
-
-
-def jpeg2np(image, size=None):
-    """Converts a jpeg image in a 2d numpy array of RGB pixels and resizes it to the given size (if provided).
-      Args:
-        image: a compressed BGR jpeg image.
-        size: a tuple containing width and height, or None for no resizing.
-
-      Returns:
-        the raw, resized image as a 2d numpy array of RGB pixels.
-    """
-    compressed = np.fromstring(image, np.uint8)
-    raw = cv2.imdecode(compressed, cv2.IMREAD_COLOR)
-    # TODO eliminate conversion everywhere
-    img = cv2.cvtColor(raw, cv2.COLOR_BGR2RGB)
-    if size:
-        img = cv2.resize(img, size)
-
-    return img
-
-
-# method to convert quaternion orientation to euler orientation
-def quat_to_eul(q):
-    euler = tf.transformations.euler_from_quaternion(q)  # roll 0, pitch 1, yaw 2
-    return euler
 
 
 def pre_proc(bag_df_dict, data_id, f):

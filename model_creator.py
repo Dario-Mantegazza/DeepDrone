@@ -2,12 +2,14 @@ import keras
 
 from keras.models import Sequential, Model
 from keras.layers import *
+from global_parameters import *
 
 
 def model_creator(num_classes, show_summary=False, old=False):
+
     if old:
         seq_model = create_sequential()
-        model_input = Input((60, 107, 3))
+        model_input = Input((image_height, image_width, 3))
         out_sequential = seq_model(model_input)
         y_1 = (Dense(1, activation='linear', name="distance_pred"))(out_sequential)
         y_2 = (Dense(1, activation='linear', name="angle_pred"))(out_sequential)
@@ -23,7 +25,7 @@ def model_creator(num_classes, show_summary=False, old=False):
             model.summary()
     else:  # NEW
         seq_model = create_sequential()
-        model_input = Input((60, 107, 3))
+        model_input = Input((image_height, image_width, 3))
         out_sequential = seq_model(model_input)
         y_1 = (Dense(1, activation='linear', name="x_pred"))(out_sequential)
         y_2 = (Dense(1, activation='linear', name="y_pred"))(out_sequential)
@@ -45,7 +47,7 @@ def model_creator(num_classes, show_summary=False, old=False):
 
 def create_sequential():
     model = Sequential()
-    model.add(Conv2D(10, (6, 6), padding='same', input_shape=(60, 107, 3), name="1_conv"))
+    model.add(Conv2D(10, (6, 6), padding='same', input_shape=(image_height, image_width, 3), name="1_conv"))
     model.add(Activation('relu'))
     model.add(MaxPooling2D(pool_size=(3, 3), name="1_pool"))
     model.add(Conv2D(15, (6, 6), padding='same', name="2_conv"))
