@@ -70,6 +70,8 @@ class TrainedModel:
         self.PADCOLOR = [255, 255, 255]
         self.drone_im = cv2.resize(cv2.imread("drone.png"), (0, 0), fx=0.08, fy=0.08)
         self.pub_vel = rospy.Publisher("bebop/des_body_vel", Twist, queue_size=1)
+        self.pub_pose = rospy.Publisher("bebop/target", PoseStamped, queue_size=1)
+        self.pub_head = rospy.Publisher("bebop/head/pred", PoseStamped, queue_size=1)
         self.sub_stop = rospy.Subscriber("bebop/stop", Empty, self.stop_everything)
         self.sub_odom = rospy.Subscriber("bebop/mocap_odom", Odometry, self.read_z_odom)
         self.kp_ang_z = rospy.get_param("~kp_ang_z", -0.05)  # opencv sucks
@@ -93,25 +95,40 @@ class TrainedModel:
         clear_session()
         del self.model  # deletes the existing model
         self.model = keras.models.load_model("./saved_models/keras_bebop_trained_model.h5")
+        # self.model = keras.models.load_model("./saves/2018-06-20-00-46-00/keras_bebop_trained_model_3.h5")
         self.model._make_predict_function()
         self.graph = tf.get_default_graph()
         self.camera_feed = rospy.Subscriber(self.pub_name + '/image_raw/compressed', CompressedImage, self.predict_)
 
     def update_pose(self, y):
-        target_x = y[0] + math.cos(y[3]) * self.mean_dist
-        target_y = y[1] + math.sin(y[3]) * self.mean_dist
+
+        target_x = y[0] - math.cos(y[3]) * self.mean_dist
+        target_y = y[1] - math.sin(y[3]) * self.mean_dist
         target_z = y[2]
         target_yaw = y[3]
-        message = PoseStamped()
-        message.header.frame_id = "base_link"
-        message.header.stamp = rospy.Time.now()
-        message.pose.position.x = target_x
-        message.pose.position.y = target_y
-        message.pose.position.z = target_z
-        message.pose.orientation.z = math.sin(target_yaw/2)
-        message.pose.orientation.w = math.copysign(target_yaw/2)
+
+        message_1 = PoseStamped()
+        message_1.header.frame_id = "base_link"
+        message_1.header.stamp = rospy.Time.now()
+        message_1.pose.position.x = target_x
+        message_1.pose.position.y = target_y
+        message_1.pose.position.z = target_z
+        message_1.pose.orientation.z = math.sin(target_yaw/2.0)
+        message_1.pose.orientation.w = math.cos(target_yaw/2.0)
+
+        message_2 = PoseStamped()
+        message_2.header.frame_id = "base_link"
+        message_2.header.stamp = rospy.Time.now()
+        message_2.pose.position.x = y[0]
+        message_2.pose.position.y = y[1]
+        message_2.pose.position.z = y[2]
+        y_ = y[3] + np.pi
+        message_2.pose.orientation.z = math.sin(y_ / 2.0)
+        message_2.pose.orientation.w = math.cos(y_ / 2.0)
+
         if self.status:
-            self.pub_vel.publish(message)
+            self.pub_pose.publish(message_1)
+            self.pub_head.publish(message_2)
 
     def old_update_control(self, y):
         message = Twist()
