@@ -13,10 +13,12 @@ from keras.backend import clear_session
 from keras.models import Sequential
 from numpy import array
 from sensor_msgs.msg import CompressedImage
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import Twist, PoseStamped
 from std_msgs.msg import Empty
 from nav_msgs.msg import Odometry
 from global_parameters import *
+from utils import *
+
 # -------- some global variables -----------
 distance_tolerance = 0.5
 tolerance = 0.001
@@ -56,8 +58,6 @@ class PID:
         return self.Kp * e + self.Kd * derivative + self.Ki * self.sum_e
 
 
-
-
 # Class of the trained model
 class TrainedModel:
     def __init__(self):
@@ -75,11 +75,12 @@ class TrainedModel:
         self.kp_ang_z = rospy.get_param("~kp_ang_z", -0.05)  # opencv sucks
         self.kp_lin_z = rospy.get_param("~kp_lin_z", 1)
         self.kp_lin_x = rospy.get_param("~kp_lin_x", 4)
+        self.kp_lin_y = rospy.get_param("~kp_lin_y", 4)
         self.status = True
         self.real_z = 0.0
-        self.target_z = 1.75
+        self.fixed_target_z = 1.75
         self.mean_dist = 1.5
-        self.target_x = 1.437
+        self.fixed_target_x = 1.437
 
     def stop_everything(self, msg):  # aggiungere msg anche se e' empty
         self.status = False
@@ -96,12 +97,28 @@ class TrainedModel:
         self.graph = tf.get_default_graph()
         self.camera_feed = rospy.Subscriber(self.pub_name + '/image_raw/compressed', CompressedImage, self.predict_)
 
-    def update_control(self, y):
+    def update_pose(self, y):
+        target_x = y[0] + math.cos(y[3]) * self.mean_dist
+        target_y = y[1] + math.sin(y[3]) * self.mean_dist
+        target_z = y[2]
+        target_yaw = y[3]
+        message = PoseStamped()
+        message.header.frame_id = "base_link"
+        message.header.stamp = rospy.Time.now()
+        message.pose.position.x = target_x
+        message.pose.position.y = target_y
+        message.pose.position.z = target_z
+        message.pose.orientation.z = math.sin(target_yaw/2)
+        message.pose.orientation.w = math.copysign(target_yaw/2)
+        if self.status:
+            self.pub_vel.publish(message)
+
+    def old_update_control(self, y):
         message = Twist()
         # message.linear.z = self.kp_lin_z * (y[2])
-        message.linear.z = self.kp_lin_z * (self.target_z - self.real_z)
-        message.linear.x = self.kp_lin_x * (y[0] - self.target_x)
-        message.angular.z = self.kp_ang_z * y[1]
+        message.linear.z = self.kp_lin_z * (self.fixed_target_z - self.real_z)
+        message.linear.x = self.kp_lin_x * (y[0] - self.fixed_target_x)
+        message.linear.y = self.kp_lin_y * y[2]
         if self.status:
             self.pub_vel.publish(message)
 
@@ -112,8 +129,8 @@ class TrainedModel:
         x_data = np.reshape(x_data, (-1, image_height, image_width, 3))
         with self.graph.as_default():
             y_pred = self.model.predict(x_data)
-        self.update_control(np.reshape(y_pred,-1))
-        self.showResult(x_data[0],np.reshape(y_pred,-1))
+        self.update_pose(np.reshape(y_pred, -1))
+        self.showResult(x_data[0], np.reshape(y_pred, -1))
 
     # method that creates and show the image of the cnn results
     def showResult(self, frame, y_d):
@@ -272,7 +289,7 @@ class TrainedModel:
         h_scale_factor = 300 / 2
 
         pr_h_center = (h_c_x,
-                       int((h_c_y - h_scale_factor *y_d[2])))
+                       int((h_c_y - h_scale_factor * y_d[2])))
         cv2.circle(im_final, center=pr_h_center, radius=5, color=pr_color, thickness=5)
         cv2.imshow("Display window", im_final)
         cv2.waitKey(1)
