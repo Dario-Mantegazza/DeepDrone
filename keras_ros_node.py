@@ -267,11 +267,7 @@ class TrainedModel:
         cv2.putText(im_final, "-%.1f m" % self.mean_dist, (int(t_x + scale_factor * self.mean_dist), 70), font, 0.4, text_color, 1, cv2.LINE_AA)
         cv2.putText(im_final, "-%.1f m" % (self.mean_dist * 2), (int(t_x - 5 + scale_factor * (self.mean_dist * 2)), 70), font, 0.4, text_color, 1, cv2.LINE_AA)
 
-        # draw GT point
-
-        # draw gt arrow
         arrow_len = 40
-        # GT
         y_angle_for_cv2 = -y_d[3] + np.pi / 2
 
         # draw Pred point
