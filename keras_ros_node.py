@@ -82,7 +82,7 @@ class TrainedModel:
         self.real_z = 0.0
         self.fixed_target_z = 1.75
         self.mean_dist = 1.5
-        self.fixed_target_x = 1.437
+        self.fixed_target_x = 1.5
 
     def stop_everything(self, msg):  # aggiungere msg anche se e' empty
         self.status = False

@@ -11,10 +11,34 @@ from model_creator import model_creator, generator
 from tool_to_plot_data import history_data_plot_crossvalidation, plot_results_cross, KerasVideoCreator
 
 
-# Cnn method contains the definition, training, testing and plotting of the CNN model and dataset
-def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_train, y_test, y_train, i):
+def CNNMethod(batch_size, epochs, model_name, save_dir, x_test, x_train, y_test, y_train, i):
+    """
+        Cnn method runs a fold of the k-fold crossvalidation:
+            -train
+            -test
+            -save model as a h5py file
+            -save hyperparameters values as txt file
+            -calls method to run dumb prediction
+            -calls method to create a video for qualitative evaluation
+            -calls method to plot data for quantitative evaluation
+
+    Args:
+        batch_size: size of a batch
+        epochs: number of epochs
+        model_name: name of the model, used for naming saved models
+        save_dir: directory of the running test folder
+        x_test: validation samples
+        x_train: training samples
+        y_test: validation target
+        y_train: training target
+        i: index of the i-th fold of cross validation
+
+    Returns:
+        history.history: history of metrics of i-th fold run
+        dumb_metrics: list of metrics results after dumb regression
+    """
     print("k-fold:" + str(i))
-    model, lr, _ = model_creator(num_classes, show_summary=True)
+    model, lr, _ = model_creator(show_summary=True)
     if i == 0:
         # plot_model(model.layers[1], to_file=save_dir + '/model_seq.png')
         # plot_model(model, to_file=save_dir + '/model_out.png')
@@ -55,7 +79,26 @@ def CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_t
     return history.history, dumb_metrics
 
 
-def crossValidation(k_fold, batch_size, num_classes, epochs):
+def crossValidation(k_fold, batch_size, epochs):
+    """
+        Runs all folds of a k-fold crossvalidation
+        -creates save directory of the run usign datetime as foldername
+        -for each fold:
+            -reads the .pickle files and compose training and validation sets
+            -calls CNNMethod
+            -saves running time of fold in computation_time.txt
+        -saves history data from all runs
+        -plot crossvalidation mean metrics results
+        -save crossvalidation time in computation_time.txt
+
+    Args:
+        k_fold: number of folds
+        batch_size: size of a batch
+        epochs: number of epochs
+
+    Returns:
+        nothing
+    """
     start_time = datetime.now()
     save_path = 'saves/' + datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
     try:
@@ -108,7 +151,7 @@ def crossValidation(k_fold, batch_size, num_classes, epochs):
         print('x_train shape: ' + str(x_train.shape))
         print('train samples: ' + str(x_train.shape[0]))
         print('test samples:  ' + str(x_test.shape[0]))
-        history, dumb_results = CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_train, y_test, y_train, i)
+        history, dumb_results = CNNMethod(batch_size, epochs, model_name, save_dir, x_test, x_train, y_test, y_train, i)
         history_list.append(history)
         dumb_list.append(dumb_results)
         e_end_time = datetime.now()
@@ -163,6 +206,10 @@ def crossValidation(k_fold, batch_size, num_classes, epochs):
 
 # ------------------- Main ----------------------
 def main():
+    """
+    -Setup k-fold cross validation parameters
+    -calls crossValidation()
+    """
     k_fold = 5
     batch_size = 64
     num_classes = 4

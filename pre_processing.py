@@ -167,7 +167,7 @@ class VideoCreator:
 
         pt3 = (25, 175)
         pt4 = (25, 225)
-        if self.distances[i] < 1.437:
+        if self.distances[i] < 1.5:
             cv2.arrowedLine(img, pt3, pt4, (0, 255, 0), 3)
         else:
             cv2.arrowedLine(img, pt4, pt3, (0, 255, 0), 3)

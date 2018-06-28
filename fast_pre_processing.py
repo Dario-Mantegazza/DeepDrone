@@ -13,15 +13,38 @@ from global_parameters import *
 from utils import jpeg2np, time_conversion_to_nano, find_nearest
 
 
-# This class handles the dataset creation.
 class DatasetCreator:
+    """
+        This class handles the dataset creation
+    """
     def __init__(self):
+        """
+            initializer for the class. creates an empty self.dataset
+        """
         self.dataset = []
 
     def generate_data(self, data_vec):
+        """
+            append new data_vec to self.dataset
+        Args:
+            data_vec: vector of data
+        """
         self.dataset += data_vec
 
     def save_dataset(self, flag_train, title="wrong.pickle"):
+        """
+            Save the dataset in one of three forms
+                - train set
+                - validation set
+                - single set part of crossvalidation
+
+        Args:
+            flag_train: flag indicating the type of dataset to be saved
+            title: name of the dateset file
+
+        Returns:
+            None if error in flag_train
+        """
         if flag_train == "train":
             shuffled_dataset = list(self.dataset)
             train = pd.DataFrame(shuffled_dataset)
@@ -38,27 +61,47 @@ class DatasetCreator:
             return None
 
 
-# function that convert rospose to homogeneus matrix
 def rospose2homogmat(p, q):
-    w_r_o = np.array(quat2mat(q)).astype(np.float64)  # rotation matrix of object wrt world frame
+    """
+        Convert rospose Pose to homogeneus matrix
+    Args:
+        p: position array
+        q: rotation quaternion array
+
+    Returns:
+        w_t_o: Homogeneous roto-translation matrix
+            World
+                T
+                  object
+    """
+    w_r_o = np.array(quat2mat(q)).astype(np.float64)
     tempmat = np.hstack((w_r_o, np.expand_dims(p, axis=1)))
     w_t_o = np.vstack((tempmat, [0, 0, 0, 1]))
     return w_t_o
 
 
-# method to convert quaternion orientation to euler orientation
 def quat_to_eul(q):
-    euler = tf.transformations.euler_from_quaternion(q)  # roll 0, pitch 1, yaw 2
+    """
+        Convert quaternion orientation to euler orientation
+    Args:
+        q: quaternion array
+
+    Returns:
+        euler: array of 3-D rotation   [roll, pitch, yaw]
+    """
+    euler = tf.transformations.euler_from_quaternion(q)  #
     return euler
 
 
 def change_frame_reference(pose_bebop, pose_head):
-    """Change frame of reference of pose head from World to bebop.
-          Args:
+    """
+        Change frame of reference of pose head from World to bebop.
+
+        Args:
             pose_bebop: pose of the bebop
             pose_head: pose of the head
 
-          Returns:
+        Returns:
             the new pose for head:
                 bebop
                     T
@@ -77,11 +120,31 @@ def change_frame_reference(pose_bebop, pose_head):
 
 
 def get_bag_data_pandas(bag):
-    # bag = rosbag.Bag(bag_file)
+    """
+        Read a bag object and save data from three topics into Pandas dataframe
+        topics:
+            /optitrack/head:
+                -timestamp of recording
+                -poseStamped message
+            /optitrack/bebop:
+                -timestamp of recording
+                -poseStamped message
+            /bebop/image_raw/compressed:
+                -timestamp of recording
+                -camera feed data
+    Args:
+        bag: bagfile object
+
+    Returns:
+        dictionary:
+        {'head_df': head_df,
+         'bebop_df': bebop_df,
+         'camera_df': camera_df}
+        Composed of the three Pandas dataframe containing the three topics data
+    """
     h_id = []
     h_v = []
     for topic, hat, t in bag.read_messages(topics=['/optitrack/head']):
-        # print("head")
         secs = t.secs
         nsecs = t.nsecs
         h_id.append(time_conversion_to_nano(secs, nsecs))
@@ -98,7 +161,6 @@ def get_bag_data_pandas(bag):
     b_id = []
     b_v = []
     for topic, bebop, t in bag.read_messages(topics=['/optitrack/bebop']):
-        # print("bebop")
         secs = t.secs
         nsecs = t.nsecs
         b_id.append(time_conversion_to_nano(secs, nsecs))
@@ -115,7 +177,6 @@ def get_bag_data_pandas(bag):
     c_id = []
     c_v = []
     for topic, image_frame, t in bag.read_messages(topics=['/bebop/image_raw/compressed']):
-        # print("camera")
         secs = t.secs
         nsecs = t.nsecs
         c_id.append(time_conversion_to_nano(secs, nsecs))
@@ -127,7 +188,18 @@ def get_bag_data_pandas(bag):
     return {'head_df': head_df, 'bebop_df': bebop_df, 'camera_df': camera_df}
 
 
-def pre_proc(bag_df_dict, data_id, f):
+def processing(bag_df_dict, data_id, f):
+    """
+        Process data from dictionary bag_df_dict into a data vector
+    Args:
+        bag_df_dict: dictionary of Pandas dataframes
+        data_id: id of the bag file processed
+        f: bag file name, used as key for dictionary
+
+    Returns:
+        data vector: vector of tutples (image, (targe_x, target_y, target_z, target_relative_yaw)
+
+    """
     camera_t = bag_df_dict["camera_df"].index.values
     bebop_t = bag_df_dict["bebop_df"].index.values
     head_t = bag_df_dict["head_df"].index.values
@@ -149,32 +221,27 @@ def pre_proc(bag_df_dict, data_id, f):
         quaternion_head = head_pose[['h_rot_x', 'h_rot_y', 'h_rot_z', 'h_rot_w']].values
         _, _, head_yaw = quat_to_eul(quaternion_head)
         _, _, bebop_yaw = quat_to_eul(quaternion_bebop)
-        # relative_yaw = (head_yaw - bebop_yaw)
         relative_yaw = (head_yaw - bebop_yaw - np.pi)
         if relative_yaw < -np.pi:
             relative_yaw += 2 * np.pi
-        label_position = b_t_h[:-1, -1:].T[0]
-        label = (label_position[0], label_position[1], label_position[2], relative_yaw)
-        data_vec.append((img, label))
-    # angles = []
-    # for i in range(len(data_vec)):
-    #     asd__ = data_vec[i][1][3]
-    #     angles.append(asd__)
-    # plt.plot(angles)
-    # plt.show()
-    # plt.hist(angles, bins=180)
-    # plt.show()
-
+        target_position = b_t_h[:-1, -1:].T[0]
+        target = (target_position[0], target_position[1], target_position[2], relative_yaw)
+        data_vec.append((img, target))
     return data_vec
 
 
 def bag_to_pickle(f):
+    """
+        Core method used to transforms and saves a bag file into a .pickle dataset file
+    Args:
+        f: file name e.g. "7.bag"
+    """
     path = bag_file_path[f[:-4]]
     print("\nreading bag: " + str(f))
     datacr = DatasetCreator()
     with rosbag.Bag(path + f) as bag:
         bag_df_dict = get_bag_data_pandas(bag)
-    data_vec = pre_proc(bag_df_dict=bag_df_dict, data_id=f[:-4], f=f)
+    data_vec = processing(bag_df_dict=bag_df_dict, data_id=f[:-4], f=f)
     datacr.generate_data(data_vec=data_vec)
     datacr.save_dataset(flag_train="cross", title=f[:-4] + ".pickle")
 
@@ -182,11 +249,15 @@ def bag_to_pickle(f):
 
 
 def main():
+    """
+        Using user input from console select which functionaly execute:
+            - create single dataset (Single threaded script)
+            - create crossvalidation dataset (Multi threaded script, high CPU usage)
+    Returns:
+        None in case of errors
+    """
     scelta = raw_input("Train/val or cross:[t/c]")
     if scelta == "t":
-        # create dataset, not parallelized.
-        # train
-
         path = "./bagfiles/train/"
         files = [f for f in os.listdir(path) if f[-4:] == '.bag']
         if not files:
@@ -198,11 +269,10 @@ def main():
             print("\nreading bag: " + str(f))
             with rosbag.Bag(path + f) as bag:
                 bag_df_dict = get_bag_data_pandas(bag)
-            data_vec = pre_proc(bag_df_dict=bag_df_dict, data_id=f[:-4], f=f)
+            data_vec = processing(bag_df_dict=bag_df_dict, data_id=f[:-4], f=f)
             datacr_train.generate_data(data_vec=data_vec)
         datacr_train.save_dataset(flag_train="train")
 
-        # validation
         path = "./bagfiles/validation/"
         files = [f for f in os.listdir(path) if f[-4:] == '.bag']
         if not files:
@@ -214,7 +284,7 @@ def main():
             print("\nreading bag: " + str(f))
             with rosbag.Bag(path + f) as bag:
                 bag_df_dict = get_bag_data_pandas(bag)
-            data_vec = pre_proc(bag_df_dict=bag_df_dict, data_id=f[:-4], f=f)
+            data_vec = processing(bag_df_dict=bag_df_dict, data_id=f[:-4], f=f)
             datacr_val.generate_data(data_vec=data_vec)
         datacr_val.save_dataset(flag_train="validation")
 

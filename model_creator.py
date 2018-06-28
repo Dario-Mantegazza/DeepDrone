@@ -5,7 +5,7 @@ from keras.layers import *
 from global_parameters import *
 
 
-def model_creator(num_classes, show_summary=False, old=False):
+def model_creator(show_summary=False, old=False):
 
     if old:
         seq_model = create_sequential()

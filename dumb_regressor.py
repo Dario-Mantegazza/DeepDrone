@@ -4,6 +4,19 @@ import numpy as np
 
 
 def dumb_regressor_result(x_test, x_train, y_test, y_train):
+    """
+          Dumb regressor, predict only the mean value for each target variable,
+          returns MAE and MSE metrics per each variable.
+
+          Args:
+            x_test: validation samples
+            x_train: training samples
+            y_test: validation target
+            y_train: training target
+
+          Returns:
+            dumb_metrics: list of metrics results after dumb regression
+    """
     dumb_reg = DummyRegressor()
     fake_data = np.zeros((x_train.shape[0], 1))
     fake_test = np.zeros((1, 1))
