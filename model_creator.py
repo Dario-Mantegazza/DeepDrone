@@ -6,7 +6,18 @@ from global_parameters import *
 
 
 def model_creator(show_summary=False, old=False):
+    """
+        Generate the model.
+        Available two architcture
+            -old
+            -new
+    Args:
+        show_summary: if true, show keras model summary in console
+        old: if true create old architecture
 
+    Returns:
+
+    """
     if old:
         seq_model = create_sequential()
         model_input = Input((image_height, image_width, 3))
@@ -33,9 +44,7 @@ def model_creator(show_summary=False, old=False):
         y_4 = (Dense(1, activation='linear', name="yaw_pred"))(out_sequential)
         model = Model(inputs=model_input, outputs=[y_1, y_2, y_3, y_4])
         learn_rate = 0.00005
-        # decay = 1e-6
         opt = keras.optimizers.Adam(lr=learn_rate)
-        # opt = keras.optimizers.rmsprop(lr=learn_rate, decay=decay)
         model.compile(loss='mean_absolute_error',
                       optimizer=opt,
                       metrics=['mse'])
@@ -46,6 +55,11 @@ def model_creator(show_summary=False, old=False):
 
 
 def create_sequential():
+    """
+        Create sequential part of the model architecture
+    Returns:
+        model: keras Sequential object
+    """
     model = Sequential()
     model.add(Conv2D(10, (6, 6), padding='same', input_shape=(image_height, image_width, 3), name="1_conv"))
     model.add(Activation('relu'))
@@ -64,29 +78,48 @@ def create_sequential():
     return model
 
 
-def data_augmentor(frame, label, noise=False):
+def data_augmentor(frame, target):
+    """
+        recieves frame and targets with p=50% flip vertically
+    Args:
+        frame: image
+        target:  target for CNN
+
+    Returns:
+        frame and targers eventually flipped
+    """
     if np.random.choice([True, False]):
         frame = np.fliplr(frame)  # IMG
-        label[1] = -label[1]  # Y
-        label[3] = -label[3]  # Relative YAW
-    return frame, label
+        target[1] = -target[1]  # Y
+        target[3] = -target[3]  # Relative YAW
+    return frame, target
 
 
-def generator(features, labels, batch_size, old=False):
+def generator(samples, targets, batch_size, old=False):
+    """
+        Genereator of minibatches of size batch_size
+    Args:
+        samples: sample array
+        targets: targets array
+        batch_size: batch size
+        old: if true genereate data for old architecture
+    Yields:
+        batch of samples and array of batch of targets
+    """
     if old:  # OLD
         while True:
-            indexes = np.random.choice(np.arange(0, features.shape[0]), batch_size)
-            batch_features = features[indexes]
-            batch_labels = labels[indexes]
-            for i in range(0, batch_features.shape[0]):
-                batch_features[i], batch_labels[i] = data_augmentor(batch_features[i], batch_labels[i])
-            yield batch_features, [batch_labels[:, 0], batch_labels[:, 1], batch_labels[:, 2]]
+            indexes = np.random.choice(np.arange(0, samples.shape[0]), batch_size)
+            batch_samples = samples[indexes]
+            batch_targets = targets[indexes]
+            for i in range(0, batch_samples.shape[0]):
+                batch_samples[i], batch_targets[i] = data_augmentor(batch_samples[i], batch_targets[i])
+            yield batch_samples, [batch_targets[:, 0], batch_targets[:, 1], batch_targets[:, 2]]
     else:  # NEW
         while True:
-            indexes = np.random.choice(np.arange(0, features.shape[0]), batch_size)
-            batch_features = features[indexes]
-            batch_labels = labels[indexes]
-            for i in range(0, batch_features.shape[0]):
-                batch_features[i], batch_labels[i] = data_augmentor(batch_features[i], batch_labels[i])
-            yield batch_features, [batch_labels[:, 0], batch_labels[:, 1], batch_labels[:, 2], batch_labels[:, 3]]
+            indexes = np.random.choice(np.arange(0, samples.shape[0]), batch_size)
+            batch_samples = samples[indexes]
+            batch_targets = targets[indexes]
+            for i in range(0, batch_samples.shape[0]):
+                batch_samples[i], batch_targets[i] = data_augmentor(batch_samples[i], batch_targets[i])
+            yield batch_samples, [batch_targets[:, 0], batch_targets[:, 1], batch_targets[:, 2], batch_targets[:, 3]]
 

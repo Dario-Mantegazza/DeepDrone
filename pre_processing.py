@@ -2,7 +2,6 @@
 import io
 import math
 import os
-import random
 from PIL import Image
 from multiprocessing import Pool
 
@@ -17,17 +16,33 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.ticker import MultipleLocator
 from scipy.spatial import distance
 from transforms3d.derivations.quaternions import quat2mat
+from utils import find_nearest,time_conversion_to_nano
 from global_parameters import *
+
 
 # ------ Classes ------
 
 # This class handles the dataset creation.
 class DatasetCreator:
     def __init__(self):
+        """
+           initializer for the class. creates an empty self.dataset
+        """
         self.dataset = []
 
-    # Main method of the class, cycles through different nparrays and call other methods to compose the dataset.
     def generate_data(self, distances, b_orientation, b_position, frame_list, h_orientation, h_position, delta_z, f):
+        """
+            Cycles through different npArrays and call other methods to compose the dataset.
+        Args:
+            distances: list of distance user-drone
+            b_orientation: bebop orientation array
+            b_position: bebop position array
+            frame_list: camera frame list
+            h_orientation: head orientation array
+            h_position: head orientation array
+            delta_z: height difference list
+            f: file name
+        """
         self.b_orientation = b_orientation
         self.b_position = b_position
         self.frame_list = frame_list
@@ -38,11 +53,14 @@ class DatasetCreator:
         max_ = bag_end_cut[f[:-4]]
         min_ = bag_start_cut[f[:-4]]
         for i in tqdm.tqdm(range(min_, max_)):
-            # for i in tqdm.tqdm(range(100, 400)):
             self.data_aggregator(i)
 
-    # append a frame with labels into the dataset file. Using a flag it is possible to select the labels to associate with the camera frame
     def data_aggregator(self, i):
+        """
+            append a frame with labels into the self.dataset variable.
+        Args:
+            i: frame number
+        """
         img = Image.open(io.BytesIO(self.frame_list[i]))
         raw_frame = list(img.getdata())
         frame = []
@@ -59,19 +77,24 @@ class DatasetCreator:
 
         self.dataset.append((scaled_fr, label))
 
-    # saves the dataset pickle file.
     def save_dataset(self, flag_train, title="wrong.pickle"):
-        random.seed(42)
-        # save
+        """
+            Save the dataset in one of three forms
+                - train set
+                - validation set
+                - single set part of crossvalidation
+        Args:
+            flag_train: flag indicating the type of dataset to be saved
+            title: name of the dateset file
+
+        Returns:
+            None if error in flag_train
+        """
         if flag_train == "train":
-            shuffled_dataset = list(self.dataset)
-            # np.random.shuffle(shuffled_dataset)
-            train = pd.DataFrame(shuffled_dataset)
+            train = pd.DataFrame(list(self.dataset))
             train.to_pickle("./dataset/old/train.pickle")
         elif flag_train == "validation":
-            shuffled_dataset = list(self.dataset)
-            # no shuffling for validation
-            val = pd.DataFrame(shuffled_dataset)
+            val = pd.DataFrame(list(self.dataset))
             val.to_pickle("./dataset/old/validation.pickle")
         elif flag_train == "cross":
             val = pd.DataFrame(list(self.dataset))
@@ -84,6 +107,19 @@ class DatasetCreator:
 # Class used for creating video to analyze new data from bag files.
 class VideoCreator:
     def __init__(self, b_orientation, distances, b_position, frame_list, h_orientation, h_position, delta_z, f, title="test.avi"):
+        """
+            Initializer for the class
+        Args:
+            distances: list of distance user-drone
+            b_orientation: bebop orientation array
+            b_position: bebop position array
+            frame_list: camera frame list
+            h_orientation: head orientation array
+            h_position: head orientation array
+            delta_z: height difference list
+            f: bag file name
+            title: video file name
+        """
         self.fps = 30
         self.f = f
         self.video_writer = cv2.VideoWriter(title, cv2.VideoWriter_fourcc(*'XVID'), self.fps, (640, 480))
@@ -95,8 +131,12 @@ class VideoCreator:
         self.distances = distances
         self.delta_z = delta_z
 
-    # given an index compose the frame for the video. Each frame has two graphs and the camera frame associated.
     def plotting_function(self, i):
+        """
+            Given an index compose the frame for the video.
+        Args:
+            i: frame number
+        """
         fig = plt.figure()
         fig.suptitle("Frame: " + str(i), fontsize=12)
         axll = fig.add_subplot(2, 2, 1)
@@ -128,7 +168,6 @@ class VideoCreator:
         axr.xaxis.set_minor_locator(minor_locator)
         # Set grid to use minor tick locations.
         axr.grid(which='minor')
-        # plt.grid(True)
         axr.plot(self.b_position[i].x, self.b_position[i].y, "ro", self.h_position[i].x, self.h_position[i].y, "go")
         axr.arrow(self.h_position[i].x, self.h_position[i].y, arrow_length * np.cos(h_theta), arrow_length * np.sin(h_theta), head_width=0.05, head_length=0.1, fc='g', ec='g')
         axr.arrow(self.b_position[i].x, self.b_position[i].y, arrow_length * np.cos(b_theta), arrow_length * np.sin(b_theta), head_width=0.05, head_length=0.1, fc='r', ec='r')
@@ -136,14 +175,12 @@ class VideoCreator:
         # LEFT PLOT: here we represent the distance on the y axis and the heading correction for the drone in degrees on the x-axis
         r_t_h = matrix_method(self.b_position[i], self.b_orientation[i], self.h_position[i], self.h_orientation[i])
         horizontal_angle = -math.degrees(math.atan2(r_t_h[1, 3], r_t_h[0, 3]))
-        # vertical_angle = math.degrees(math.atan2(r_t_h[2, 3], r_t_h[0, 3]))
 
         value_angle_axis = 45
         axl.set_xlim(-value_angle_axis, value_angle_axis)
         axl.set_ylim(0.1, 3)
         axl.set_xlabel('Angle y')
         axl.set_ylabel('Distance')
-        # axl.axis([-value_angle_axis, value_angle_axis, 0.1, 3], 'equal')
         axl.plot(horizontal_angle, self.distances[i], 'go')
 
         axll.set_xlim(-value_angle_axis, value_angle_axis)
@@ -175,11 +212,13 @@ class VideoCreator:
         self.video_writer.write(img)
         plt.close(fig)
 
-    # composing the video
     def video_plot_creator(self):
+        """
+            calls frame composers for every frame
+            complete video creation
+        """
         max_ = len(self.frame_list)
         for i in tqdm.tqdm(range(0, max_)):
-        # for i in tqdm.tqdm(range(100, 400)):
             self.plotting_function(i)
         self.video_writer.release()
         cv2.destroyAllWindows()
@@ -187,8 +226,19 @@ class VideoCreator:
 
 # ----------FUNCTIONS DEFINITIONS---------------
 
-    # function that convert rospose to homogeneus matrix
 def rospose2homogmat(p, q):
+    """
+         Convert rospose Pose to homogeneus matrix
+     Args:
+         p: position array
+         q: rotation quaternion array
+
+     Returns:
+         w_t_o: Homogeneous roto-translation matrix
+             World
+                 T
+                   object
+     """
     w_r_o = np.array(quat2mat(quat_to_array(q))).astype(np.float64)  # rotation matrix of object wrt world frame
     np_pose = np.array([[p.x], [p.y], [p.z]])
     tempmat = np.hstack((w_r_o, np_pose))
@@ -196,8 +246,22 @@ def rospose2homogmat(p, q):
     return w_t_o
 
 
-# method that compute the change of frame of reference of the head wrt world to head wrt bebop
 def matrix_method(p_b, q_b, p_h, q_h):
+    """
+         Change frame of reference of pose head from World to bebop.
+
+         Args:
+             q_h: head quaternion
+             p_h: head position
+             q_b: bebop quaternion
+             p_b: bebop position
+
+         Returns:
+             the new pose for head:
+                 bebop
+                     T
+                      head
+     """
     w_t_b = rospose2homogmat(p_b, q_b)
     w_t_h = rospose2homogmat(p_h, q_h)
     inv_wtb = np.linalg.inv(w_t_b)
@@ -205,13 +269,15 @@ def matrix_method(p_b, q_b, p_h, q_h):
     return b_t_h
 
 
-# method to convert time
-def time_conversion_to_nano(sec, nano):
-    return (sec * 1000 * 1000 * 1000) + nano
-
-
-# method to convert quaternion orientation to euler orientation
 def quat_to_eul(orientation):
+    """
+        Convert quaternion orientation to euler orientation
+    Args:
+        orientation: ros quaternion message
+
+    Returns:
+        euler: array of 3-D rotation   [roll, pitch, yaw]
+    """
     quaternion = (
         orientation.x,
         orientation.y,
@@ -221,33 +287,53 @@ def quat_to_eul(orientation):
     return euler
 
 
-# find nearest value in array
-def find_nearest(array, value):
-    return (np.abs(array - value)).argmin()
-
-
-# given a bagfile, this function extracts the info from three topics
 def get_bag_data(bag_file):
-    hat_positions = []
-    hat_orientaions = []
-    hat_times = []
+    """
+        Read a bag object and save data from three topics into multiple lists
+        topics:
+            /optitrack/head:
+                -timestamp of recording
+                -poseStamped message
+            /optitrack/bebop:
+                -timestamp of recording
+                -poseStamped message
+            /bebop/image_raw/compressed:
+                -timestamp of recording
+                -camera feed data
+    Args:
+        bag_file: bagfile object
+
+    Returns:
+        camera_times: camera feed timestamp list
+        frames: frame lists
+        bebop_times : bebop pose timestamp list
+        bebop_positions: bebop position list
+        head_times: head timestamp list
+        head_positions: head position list
+        head_orientations: head orientation list
+        bebop_orientations: bebop orientation list
+
+    """
+    head_positions = []
+    head_orientations = []
+    head_times = []
     for topic, hat, t in bag_file.read_messages(topics=['/optitrack/head']):
         secs = t.secs
         nsecs = t.nsecs
-        hat_times.append(time_conversion_to_nano(secs, nsecs))
+        head_times.append(time_conversion_to_nano(secs, nsecs))
 
-        hat_positions.append(hat.pose.position)
-        hat_orientaions.append(hat.pose.orientation)
+        head_positions.append(hat.pose.position)
+        head_orientations.append(hat.pose.orientation)
 
     bebop_positions = []
-    bebop_orientaions = []
+    bebop_orientations = []
     bebop_times = []
     for topic, bebop, t in bag_file.read_messages(topics=['/optitrack/bebop']):
         secs = t.secs
         nsecs = t.nsecs
         bebop_times.append(time_conversion_to_nano(secs, nsecs))
         bebop_positions.append(bebop.pose.position)
-        bebop_orientaions.append(bebop.pose.orientation)
+        bebop_orientations.append(bebop.pose.orientation)
 
     frames = []
     camera_times = []
@@ -258,29 +344,18 @@ def get_bag_data(bag_file):
         camera_times.append(time_conversion_to_nano(secs, nsecs))
 
     bag_file.close()
-    return camera_times, frames, bebop_times, bebop_positions, hat_times, hat_positions, hat_orientaions, bebop_orientaions
+    return camera_times, frames, bebop_times, bebop_positions, head_times, head_positions, head_orientations, bebop_orientations
 
 
-# method used in the past
-def get_distant_frame(dists, camera_times, frames, num=5):
-    sorted_distances = dists[dists[:, 1].argsort()]
-    frames_selected = []
-    for i in range(len(dists) - num, len(dists)):
-        frames_selected.append(frames[np.where(camera_times == sorted_distances[i][0])[0][0]])
-    return frames_selected, sorted_distances[-num:]
-
-
-# method used in the past
-def get_near_frame(dists, camera_times, frames, num=5):
-    sorted_distances = dists[dists[:, 1].argsort()]
-    frames_selected = []
-    for i in range(0, num):
-        frames_selected.append(frames[np.where(camera_times == sorted_distances[i][0])[0][0]])
-    return frames_selected, sorted_distances[0:num]
-
-
-# transform a quaternion into array form
 def quat_to_array(q):
+    """
+        transform a ros quaternion orientation message into array form
+    Args:
+        q:
+
+    Returns:
+
+    """
     ret = np.zeros((4))
     ret[0] = q.w
     ret[1] = q.x
@@ -291,6 +366,21 @@ def quat_to_array(q):
 
 # method where most of the data is pre processed.
 def data_pre_processing(bag):
+    """
+    Process data from dictionary bag_df_dict into a multiple varaibles
+    Args:
+        bag: bag file object
+
+    Returns:
+        b_sel_orientations = bebop selected orientations
+        b_sel_positions = bebop selected positions
+        frames_list = camera frame list
+        h_sel_orientations = head selected orientations
+        h_sel_positions = head selected positions
+        distances = selected distancese user-drone
+        delta_z = selected height differences list
+
+    """
     # get data from bag file
     camera_time_list, frames_list, bebop_time_list, bebop_position_list, hat_time_list, hat_position_list, hat_orientation_list, bebop_orientation_list = get_bag_data(bag)
 
@@ -344,8 +434,12 @@ def data_pre_processing(bag):
     return b_sel_orientations, b_sel_positions, frames_list, h_sel_orientations, h_sel_positions, distances, delta_z
 
 
-# method used for creating video for each bag file
 def bag_to_vid(f):
+    """
+        Creates a video for a bag file
+    Args:
+        f: bag file name e.g. "5.bag"
+    """
     path = bag_file_path[f[:-4]]
     print("\nreading bag: " + str(f))
     with rosbag.Bag(path + f) as bag:
@@ -364,6 +458,11 @@ def bag_to_vid(f):
 
 
 def bag_to_pickle(f):
+    """
+        Creates a pickle for a bag file
+    Args:
+        f: bag file name e.g. "5.bag"
+    """
     path = bag_file_path[f[:-4]]
     print("\nreading bag: " + str(f))
     datacr = DatasetCreator()
@@ -383,10 +482,21 @@ def bag_to_pickle(f):
 
 # ------ Main ------
 def main():
+    """
+        Using user input from console select which functionaly execute:
+            - if video is selected create video using multi threaded script
+                (can be run sinigle thread for debug)
+            - if dataset is selected three more options are available:
+                - compute mean distance
+                - create dataset, not parallelized. (used for debugging)
+                - create dataset, parallelized.
+
+    Returns:
+        None in case of errors
+    """
     # Main selection
     scelta = raw_input("Video or dataset:[v/d]")
 
-    # if video is selected, then bag_to_vid is mapped to a pool of processes to parallelize the computation. (Fast as the slowest ~ 1h)
     if scelta == "v":
         path1 = "./bagfiles/train/"
         path2 = "./bagfiles/validation/"
@@ -424,7 +534,6 @@ def main():
             pool.join()
 
     else:
-        # # compute dataset mean distance
         scelta_2 = raw_input("Train/val, Distance or cross:[t/d/c]")
 
         if scelta_2 == "d":
@@ -438,8 +547,6 @@ def main():
                 bag = rosbag.Bag(path + f)
                 _, _, _, _, _, distance_list, _ = data_pre_processing(bag)
                 sum_dist.append(np.mean(distance_list))
-
-
 
             path = "./bagfiles/validation/"
             files = [f for f in os.listdir(path) if f[-4:] == '.bag']
@@ -455,8 +562,6 @@ def main():
             dist_mean = np.mean(sum_dist)  # 1.5527058420265916
             print(dist_mean)
         elif scelta_2 == "t":
-            # create dataset, not parallelized.
-            # train
             datacr_train = DatasetCreator()
             path = "./bagfiles/train/"
             files = [f for f in os.listdir(path) if f[-4:] == '.bag']
@@ -478,7 +583,6 @@ def main():
                                            f=f)
             datacr_train.save_dataset(flag_train="train")
 
-            # validation
             datacr_val = DatasetCreator()
             path = "./bagfiles/validation/"
             files = [f for f in os.listdir(path) if f[-4:] == '.bag']

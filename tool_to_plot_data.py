@@ -9,13 +9,21 @@ from global_parameters import *
 
 # class that is used to create video
 class KerasVideoCreator:
-    def __init__(self, x_test, labels, preds, title="Validation.avi"):
+    def __init__(self, x_test, targets, preds, title="Validation.avi"):
+        """
+            Initializer for the class
+        Args:
+            x_test: validation samples
+            targets: targets values
+            preds: prediction results
+            title: videofile name
+        """
         self.fps = 30
         self.width = 1280
         self.height = 480
         self.video_writer = cv2.VideoWriter(title, cv2.VideoWriter_fourcc(*'XVID'), self.fps, (self.width, self.height))
         self.frame_list = x_test
-        self.labels = labels
+        self.labels = targets
         self.preds = preds
         self.PADCOLOR = [255, 255, 255]
         self.drone_im = cv2.resize(cv2.imread("drone.png"), (0, 0), fx=0.08, fy=0.08)
@@ -23,6 +31,11 @@ class KerasVideoCreator:
 
     # function used to compose the frame
     def frame_composer(self, i):
+        """
+            using self.df, compose the frame
+        Args:
+            i: frame number
+        """
         # Adjusting the image
         img_f = 255 - (self.frame_list[i]).astype(np.uint8)
         scaled = cv2.resize(img_f, (0, 0), fx=4, fy=4)
@@ -211,15 +224,26 @@ class KerasVideoCreator:
         self.video_writer.write(im_final)
 
     def video_plot_creator(self):
+        """
+            calls frame composers for every frame
+            complete video creation
+        """
         max_ = len(self.frame_list)
         for i in tqdm.tqdm(range(0, max_)):
-            # for i in tqdm.tqdm(range(5000, 6000)):
             self.frame_composer(i)
         self.video_writer.release()
         cv2.destroyAllWindows()
 
 
 def plot_results(history, y_pred, y_test, dumb_pred):
+    """
+        Creates and show plots
+    Args:
+        history: metrics history
+        y_pred: predictions resutls on validation set
+        y_test: validation targets
+        dumb_pred: prediction results of Dumb regressor
+    """
     figures = []
     for i in range(4):
         fig = plt.figure()
@@ -252,10 +276,8 @@ def plot_results(history, y_pred, y_test, dumb_pred):
         mae.set_xlabel('epoch')
         mae.set_ylabel('mae')
         mae.set_ylim(0, (2 * dumb_pred[i][1]))
-
         mae.legend(['train', 'test', 'mae dumb'], loc='upper right')
 
-        # sct.set(adjustable='box-forced', aspect='equal')
         sct.set(adjustable='box', aspect='equal')
         sct.scatter(y_test[:, i], y_pred[i], alpha=0.30, s=10, c='g')
         sct.plot(sct.get_xlim(), sct.get_ylim(), ls="--", c="b")
@@ -269,6 +291,16 @@ def plot_results(history, y_pred, y_test, dumb_pred):
 
 
 def plot_results_cross(history, y_pred, y_test, dumb_pred, save_dir, j):
+    """
+        Creates and saves plots for cross validation j-th fold
+    Args:
+        history: metrics history
+        y_pred: predictions resutls on validation set
+        y_test: validation targets
+        dumb_pred: prediction results of Dumb regressor
+        save_dir: save directory for the j-th fold
+        j: fold number
+    """
     my_dpi = 96
     for i in range(4):
         fig = plt.figure(figsize=(1920 / my_dpi, 1080 / my_dpi), dpi=my_dpi)
@@ -318,9 +350,15 @@ def plot_results_cross(history, y_pred, y_test, dumb_pred, save_dir, j):
 
 
 def history_data_plot_crossvalidation(history_list, dumb_list, save_dir):
+    """
+        Save plots for the whole crossvalidation run
+    Args:
+        history_list: list of histories one from each fold
+        dumb_list: dumb regression list
+        save_dir: saving directory for crossval. run
+    """
     my_dpi = 96
     mean_dumb = np.mean(np.array(dumb_list), axis=0)
-    # TODO dop mean of dumb result socan be plotted
     with open(save_dir + "/mean_results.txt", "w+") as outfile:
         outfile.write("Mean Results across 5-fold crossvalidation\n")
         outfile.write("== == == == == == == == == == == ==\n")

@@ -72,7 +72,7 @@ def CNNMethod(batch_size, epochs, model_name, save_dir, x_test, x_train, y_test,
     print('Test loss:', scores[0])
     print('Test mse:', scores[1])
 
-    vidcr_test = KerasVideoCreator(x_test=x_test, labels=y_test, preds=y_pred, title=save_dir + "/result_model_" + str(i) + "/test_result.avi")
+    vidcr_test = KerasVideoCreator(x_test=x_test, targets=y_test, preds=y_pred, title=save_dir + "/result_model_" + str(i) + "/test_result.avi")
     vidcr_test.video_plot_creator()
     dumb_metrics = dumb_regressor_result(x_test, x_train, y_test, y_train)
     plot_results_cross(history, y_pred, y_test, dumb_metrics, save_dir, i)

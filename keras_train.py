@@ -75,7 +75,7 @@ def main():
 
     history, y_pred = CNNMethod(batch_size, epochs, model_name, num_classes, save_dir, x_test, x_train, y_test, y_train)
     dumb_metrics = dumb_regressor_result(x_test, x_train, y_test, y_train)
-    vidcr_test = KerasVideoCreator(x_test=x_test, labels=y_test, preds=y_pred, title="./video/test_result.avi")
+    vidcr_test = KerasVideoCreator(x_test=x_test, targets=y_test, preds=y_pred, title="./video/test_result.avi")
     vidcr_test.video_plot_creator()
     plot_results(history, y_pred, y_test, dumb_metrics)
 

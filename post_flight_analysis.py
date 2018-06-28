@@ -14,27 +14,47 @@ from global_parameters import *
 from utils import jpeg2np, time_conversion_to_nano, find_nearest
 
 
-# function that convert rospose to homogeneus matrix
 def rospose2homogmat(p, q):
-    w_r_o = np.array(quat2mat(q)).astype(np.float64)  # rotation matrix of object wrt world frame
+    """
+        Convert rospose Pose to homogeneus matrix
+    Args:
+        p: position array
+        q: rotation quaternion array
+
+    Returns:
+        w_t_o: Homogeneous roto-translation matrix
+            World
+                T
+                  object
+    """
+    w_r_o = np.array(quat2mat(q)).astype(np.float64)
     tempmat = np.hstack((w_r_o, np.expand_dims(p, axis=1)))
     w_t_o = np.vstack((tempmat, [0, 0, 0, 1]))
     return w_t_o
 
 
-# method to convert quaternion orientation to euler orientation
 def quat_to_eul(q):
-    euler = tf.transformations.euler_from_quaternion(q)  # roll 0, pitch 1, yaw 2
+    """
+        Convert quaternion orientation to euler orientation
+    Args:
+        q: quaternion array
+
+    Returns:
+        euler: array of 3-D rotation   [roll, pitch, yaw]
+    """
+    euler = tf.transformations.euler_from_quaternion(q)  #
     return euler
 
 
 def change_frame_reference(pose_bebop, pose_head):
-    """Change frame of reference of pose head from World to bebop.
-          Args:
+    """
+        Change frame of reference of pose head from World to bebop.
+
+        Args:
             pose_bebop: pose of the bebop
             pose_head: pose of the head
 
-          Returns:
+        Returns:
             the new pose for head:
                 bebop
                     T
@@ -53,11 +73,39 @@ def change_frame_reference(pose_bebop, pose_head):
 
 
 def get_bag_data_pandas(bag):
-    # bag = rosbag.Bag(bag_file)
+    """
+        Read a bag object and save data from three topics into Pandas dataframe
+        topics:
+            /optitrack/head:
+                -timestamp of recording
+                -poseStamped message
+            /optitrack/bebop:
+                -timestamp of recording
+                -poseStamped message
+            /bebop/image_raw/compressed:
+                -timestamp of recording
+                -camera feed data
+            /bebop/head/pred
+                -timestamp of recording
+                -poseStamped message
+            /bebop/target
+                -timestamp of recording
+                -poseStamped message
+    Args:
+        bag: bagfile object
+
+    Returns:
+        dictionary:
+         {'head_df': head_df,
+         'bebop_df': bebop_df,
+         'camera_df': camera_df,
+         'prediction_df': prediction_df,
+         'target_df': target_df}
+        Composed of the three Pandas dataframe containing the five topics data
+    """
     h_id = []
     h_v = []
     for topic, hat, t in bag.read_messages(topics=['/optitrack/head']):
-        # print("head")
         secs = t.secs
         nsecs = t.nsecs
         h_id.append(time_conversion_to_nano(secs, nsecs))
@@ -74,7 +122,6 @@ def get_bag_data_pandas(bag):
     b_id = []
     b_v = []
     for topic, bebop, t in bag.read_messages(topics=['/optitrack/bebop']):
-        # print("bebop")
         secs = t.secs
         nsecs = t.nsecs
         b_id.append(time_conversion_to_nano(secs, nsecs))
@@ -91,7 +138,6 @@ def get_bag_data_pandas(bag):
     c_id = []
     c_v = []
     for topic, image_frame, t in bag.read_messages(topics=['/bebop/image_raw/compressed']):
-        # print("camera")
         secs = t.secs
         nsecs = t.nsecs
         c_id.append(time_conversion_to_nano(secs, nsecs))
@@ -103,7 +149,6 @@ def get_bag_data_pandas(bag):
     p_id = []
     p_v = []
     for topic, data, t in bag.read_messages(topics=['/bebop/head/pred']):
-        # print("camera")
         secs = t.secs
         nsecs = t.nsecs
         p_id.append(time_conversion_to_nano(secs, nsecs))
@@ -120,7 +165,6 @@ def get_bag_data_pandas(bag):
     t_id = []
     t_v = []
     for topic, data, t in bag.read_messages(topics=['/bebop/target']):
-        # print("camera")
         secs = t.secs
         nsecs = t.nsecs
         t_id.append(time_conversion_to_nano(secs, nsecs))
@@ -137,7 +181,31 @@ def get_bag_data_pandas(bag):
     return {'head_df': head_df, 'bebop_df': bebop_df, 'camera_df': camera_df, 'prediction_df': prediction_df, 'target_df': target_df}
 
 
-def pre_proc(bag_df_dict, id):
+def processing(bag_df_dict, idx):
+    """
+        Process data from dictionary bag_df_dict into a target_df dataframe
+    Args:
+        bag_df_dict: dictionary of Pandas dataframes
+        idx: bagfile index
+
+
+    Returns:
+        target_df: Pandas dataframe with the followind columns
+            opt_head_x
+            opt_head_y
+            opt_head_z
+            opt_head_yaw
+            pred_x
+            pred_y
+            pred_z
+            pred_yaw
+            target_x
+            target_y
+            target_z
+            target_yaw
+            frames
+
+    """
     camera_t = bag_df_dict["camera_df"].index.values
     bebop_t = bag_df_dict["bebop_df"].index.values
     head_t = bag_df_dict["head_df"].index.values
@@ -145,7 +213,7 @@ def pre_proc(bag_df_dict, id):
     target_t = bag_df_dict["target_df"].index.values
     data_vec = []
     data_id = []
-    for i in tqdm.tqdm(range(0, camera_t.size), desc="processing data " + str(id)):
+    for i in tqdm.tqdm(range(0, camera_t.size), desc="processing data " + str(idx)):
         data_id.append(camera_t[i])
         b_id = find_nearest(bebop_t, camera_t[i])
         h_id = find_nearest(head_t, camera_t[i])
@@ -181,7 +249,6 @@ def pre_proc(bag_df_dict, id):
         _, _, bebop_yaw = quat_to_eul(quaternion_bebop)
         _, _, prediction_yaw = quat_to_eul(quaternion_prediction)
         _, _, target_yaw = quat_to_eul(quaternion_target)
-        # relative_yaw = (head_yaw - bebop_yaw)
         relative_yaw = (head_yaw - bebop_yaw - np.pi)
         if relative_yaw < -np.pi:
             relative_yaw += 2 * np.pi
@@ -207,6 +274,12 @@ def pre_proc(bag_df_dict, id):
 
 class KerasVideoCreator:
     def __init__(self, df, title="Validation.avi"):
+        """
+            Initializer for the class
+        Args:
+            df: dataframe containing data for the video
+            title: videofile name
+        """
         self.fps = 30
         self.df = df
         self.width = 1280
@@ -216,8 +289,12 @@ class KerasVideoCreator:
         self.drone_im = cv2.resize(cv2.imread("drone.png"), (0, 0), fx=0.08, fy=0.08)
         self.mean_dist = 1.5
 
-    # function used to compose the frame
     def frame_composer(self, i):
+        """
+            using self.df, compose the frame
+        Args:
+            i: frame number
+        """
         # Adjusting the image
         img_f = (self.df["frames"].iloc[i]).astype(np.uint8)
         scaled = cv2.resize(img_f, (0, 0), fx=4, fy=4)
@@ -240,7 +317,7 @@ class KerasVideoCreator:
         y_d = [self.df['pred_x'].iloc[i],
                self.df['pred_y'].iloc[i],
                self.df['pred_z'].iloc[i],
-               self.df['pred_yaw'].iloc[i]-np.pi]
+               self.df['pred_yaw'].iloc[i] - np.pi]
 
         l_d = [self.df["opt_head_x"].iloc[i],
                self.df["opt_head_y"].iloc[i],
@@ -378,7 +455,7 @@ class KerasVideoCreator:
         # GT
         l_angle_for_cv2 = -l_d[3] + np.pi / 2
         y_angle_for_cv2 = -y_d[3] + np.pi / 2
-        t_angle_for_cv2 = -t_d[3] + np.pi / 2 +np.pi
+        t_angle_for_cv2 = -t_d[3] + np.pi / 2 + np.pi
 
         cv2.arrowedLine(im_final,
                         gt_center,
@@ -414,8 +491,8 @@ class KerasVideoCreator:
         # Target arrow
         cv2.arrowedLine(im_final,
                         targ_center,
-                        (int(targ_x + (arrow_len/2.0 * math.cos(t_angle_for_cv2))),
-                         int(targ_y + (arrow_len/2.0 * math.sin(t_angle_for_cv2)))
+                        (int(targ_x + (arrow_len / 2.0 * math.cos(t_angle_for_cv2))),
+                         int(targ_y + (arrow_len / 2.0 * math.sin(t_angle_for_cv2)))
                          ),
                         color=targ_color,
                         thickness=2)
@@ -439,24 +516,29 @@ class KerasVideoCreator:
                        int((h_c_y - h_scale_factor * l_d[2])))
         pr_h_center = (h_c_x,
                        int((h_c_y - h_scale_factor * y_d[2])))
-        # targ_h_center = (h_c_x,
-        #                int((h_c_y - h_scale_factor * t_d[2])))
         cv2.circle(im_final, center=gt_h_center, radius=5, color=gt_color, thickness=2)
         cv2.circle(im_final, center=pr_h_center, radius=5, color=pr_color, thickness=5)
-        # cv2.circle(im_final, center=targ_h_center, radius=5, color=targ_color, thickness=5)
         self.video_writer.write(im_final)
 
     def video_plot_creator(self):
+        """
+            calls frame composers for every frame
+            complete video creation
+        """
         df_id = self.df.index.values
         max_ = df_id.size
         for i in tqdm.tqdm(range(0, max_)):
-        # for i in tqdm.tqdm(range(0, 1000)):
             self.frame_composer(i)
         self.video_writer.release()
         cv2.destroyAllWindows()
 
 
 def main():
+    """
+        reads bag files and calls data processing and video creation
+    Returns:
+        None in case of errors
+    """
     path = "./Bag_flight/"
     files = [f for f in os.listdir(path) if f[-4:] == '.bag']
     if not files:
@@ -466,7 +548,7 @@ def main():
         print("\nreading bag: " + str(f))
         with rosbag.Bag(path + f) as bag:
             bag_df_dict = get_bag_data_pandas(bag)
-        data_df = pre_proc(bag_df_dict=bag_df_dict, id=f[:-4])
+        data_df = processing(bag_df_dict=bag_df_dict, id=f[:-4])
         vid_cr = KerasVideoCreator(data_df, title="./video/post_flight-" + str(f[:-4]) + ".avi")
         vid_cr.video_plot_creator()
 

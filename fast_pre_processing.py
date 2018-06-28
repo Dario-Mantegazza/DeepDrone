@@ -14,9 +14,6 @@ from utils import jpeg2np, time_conversion_to_nano, find_nearest
 
 
 class DatasetCreator:
-    """
-        This class handles the dataset creation
-    """
     def __init__(self):
         """
             initializer for the class. creates an empty self.dataset
@@ -46,12 +43,10 @@ class DatasetCreator:
             None if error in flag_train
         """
         if flag_train == "train":
-            shuffled_dataset = list(self.dataset)
-            train = pd.DataFrame(shuffled_dataset)
+            train = pd.DataFrame(list(self.dataset))
             train.to_pickle("./dataset/train.pickle")
         elif flag_train == "validation":
-            shuffled_dataset = list(self.dataset)
-            val = pd.DataFrame(shuffled_dataset)
+            val = pd.DataFrame(list(self.dataset))
             val.to_pickle("./dataset/validation.pickle")
         elif flag_train == "cross":
             val = pd.DataFrame(list(self.dataset))
@@ -252,7 +247,8 @@ def main():
     """
         Using user input from console select which functionaly execute:
             - create single dataset (Single threaded script)
-            - create crossvalidation dataset (Multi threaded script, high CPU usage)
+            - create crossvalidation dataset (Multi threaded script, high CPU usage.
+                                                Can run single thread for debugging)
     Returns:
         None in case of errors
     """

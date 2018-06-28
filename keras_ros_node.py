@@ -1,21 +1,17 @@
 # ------------------- IMPORT -------------------
-import io
 import math
 import sys
-from PIL import Image
 
-import cv2
 import keras
-import numpy as np
 import rospy
 import tensorflow as tf
+from geometry_msgs.msg import Twist, PoseStamped
 from keras.backend import clear_session
 from keras.models import Sequential
-from numpy import array
-from sensor_msgs.msg import CompressedImage
-from geometry_msgs.msg import Twist, PoseStamped
-from std_msgs.msg import Empty
 from nav_msgs.msg import Odometry
+from sensor_msgs.msg import CompressedImage
+from std_msgs.msg import Empty
+
 from global_parameters import *
 from utils import *
 
@@ -37,10 +33,15 @@ point_I = 0
 point_D = 0
 
 
-# PID class
 class PID:
-
     def __init__(self, Kp, Ki, Kd):
+        """
+            initializer for class
+        Args:
+            Kp: proportional constant value
+            Ki: integrative constant value
+            Kd: derivative constant value
+        """
         self.Kp = Kp
         self.Ki = Ki
         self.Kd = Kd
@@ -48,7 +49,14 @@ class PID:
         self.sum_e = 0
 
     def step(self, e, dt):
-        """ dt should be the time interval from the last method call """
+        """
+            compute controller output
+        Args:
+            e: error
+            dt: hould be the time interval from the last method call
+        Returns:
+            Kp * e + Kd * derivative(e) + Ki * sum(e)
+        """
         if self.last_e is not None:
             derivative = (e - self.last_e) / dt
         else:
@@ -61,6 +69,9 @@ class PID:
 # Class of the trained model
 class TrainedModel:
     def __init__(self):
+        """
+            intializer of the class
+        """
         self.model = Sequential()
         self.num_classes = 1
         self.pub_name = 'bebop'
@@ -85,23 +96,40 @@ class TrainedModel:
         self.fixed_target_x = 1.5
 
     def stop_everything(self, msg):  # aggiungere msg anche se e' empty
+        """
+            Callback for stop message
+        Args:
+            msg: emtpy
+        """
         self.status = False
 
     def read_z_odom(self, msg):
+        """
+            Callback for update in mocap/odom
+        Args:
+            msg: ros Pose message
+        """
         self.real_z = msg.pose.pose.position.z
 
-    # loads the model from the file and create a default graph, then defines the camera_feed with the callback.
     def setup(self):
+        """
+            loads the model from the file and create a default graph,
+             then defines the camera_feed with the callback.
+
+        """
         clear_session()
         del self.model  # deletes the existing model
         self.model = keras.models.load_model("./saved_models/keras_bebop_trained_model.h5")
-        # self.model = keras.models.load_model("./saves/2018-06-20-00-46-00/keras_bebop_trained_model_3.h5")
         self.model._make_predict_function()
         self.graph = tf.get_default_graph()
         self.camera_feed = rospy.Subscriber(self.pub_name + '/image_raw/compressed', CompressedImage, self.predict_)
 
     def update_pose(self, y):
-
+        """
+            update the poses and publish them
+        Args:
+            y: prediction
+        """
         target_x = y[0] - math.cos(y[3]) * self.mean_dist
         target_y = y[1] - math.sin(y[3]) * self.mean_dist
         target_z = y[2]
@@ -130,17 +158,15 @@ class TrainedModel:
             self.pub_pose.publish(message_1)
             self.pub_head.publish(message_2)
 
-    def old_update_control(self, y):
-        message = Twist()
-        # message.linear.z = self.kp_lin_z * (y[2])
-        message.linear.z = self.kp_lin_z * (self.fixed_target_z - self.real_z)
-        message.linear.x = self.kp_lin_x * (y[0] - self.fixed_target_x)
-        message.linear.y = self.kp_lin_y * y[2]
-        if self.status:
-            self.pub_vel.publish(message)
-
-    # predict call back, recieves the message and produces an image representing the output
     def predict_(self, msg_data):
+        """
+            Callback for /image_raw/compressed,
+            recieves the message
+            use the image to predict y
+            produces an image representing the poses for feedback
+        Args:
+            msg_data: CompressedImage message
+        """
         img = 255 - jpeg2np(msg_data.data, (image_width, image_height))
         x_data = np.vstack(img[:]).astype(np.float32)
         x_data = np.reshape(x_data, (-1, image_height, image_width, 3))
@@ -149,8 +175,14 @@ class TrainedModel:
         self.update_pose(np.reshape(y_pred, -1))
         self.showResult(x_data[0], np.reshape(y_pred, -1))
 
-    # method that creates and show the image of the cnn results
+    #
     def showResult(self, frame, y_d):
+        """
+            method that creates and show the image of the prediction results
+        Args:
+            frame: image
+            y_d: prediction
+        """
         img_f = 255 - frame.astype(np.uint8)
         scaled = cv2.resize(img_f, (0, 0), fx=4, fy=4)
         vert_p = int((480 - scaled.shape[0]) / 2)
@@ -286,7 +318,6 @@ class TrainedModel:
                         color=pr_color,
                         thickness=2)
         # draw height
-
         h_x = 640
         h_y = 90
         cv2.putText(im_final, "Relative Z", (h_x, h_y), font, 0.5, text_color, 1, cv2.LINE_AA)
@@ -308,12 +339,18 @@ class TrainedModel:
         cv2.waitKey(1)
 
     def main_cycle(self):
+        """
+            main cycle of the node
+        """
         while not rospy.is_shutdown():
             self.rate.sleep()
 
 
 # -------------------Main area----------------------
 def main():
+    """
+        start the node
+    """
     cnn = TrainedModel()
     cnn.setup()
     while not rospy.is_shutdown():
