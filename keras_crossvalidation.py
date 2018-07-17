@@ -215,7 +215,7 @@ def main():
     num_classes = 4
     epochs = 100
     # epochs = 2
-    crossValidation(k_fold, batch_size, num_classes, epochs)
+    crossValidation(k_fold, batch_size, epochs)
 
 
 if __name__ == "__main__":

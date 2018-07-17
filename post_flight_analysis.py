@@ -548,7 +548,7 @@ def main():
         print("\nreading bag: " + str(f))
         with rosbag.Bag(path + f) as bag:
             bag_df_dict = get_bag_data_pandas(bag)
-        data_df = processing(bag_df_dict=bag_df_dict, id=f[:-4])
+        data_df = processing(bag_df_dict=bag_df_dict, idx=f[:-4])
         vid_cr = KerasVideoCreator(data_df, title="./video/post_flight-" + str(f[:-4]) + ".avi")
         vid_cr.video_plot_creator()
 
